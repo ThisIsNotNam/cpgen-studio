@@ -30,33 +30,43 @@ export function useWorkspaceFiles(
     null,
   );
 
+  const activeFile =
+    activeFileSlot === "generator"
+      ? generatorFile
+      : activeFileSlot === "solution"
+        ? solutionFile
+        : null;
+
+  // Small helpers so the generator/solution branches below aren't repeated
+  // for every operation (set, load, save, edit, ...).
+  const setFile = (slot: WorkspaceSlot, file: WorkspaceFile | null) =>
+    slot === "generator" ? setGeneratorFile(file) : setSolutionFile(file);
+
+  const setPath = (slot: WorkspaceSlot, path: string) =>
+    slot === "generator" ? setGeneratorPath(path) : setSolutionPath(path);
+
+  const updateActiveFile = (update: (file: WorkspaceFile) => WorkspaceFile) => {
+    if (activeFileSlot === "generator") {
+      setGeneratorFile((prev) => (prev ? update(prev) : prev));
+    } else if (activeFileSlot === "solution") {
+      setSolutionFile((prev) => (prev ? update(prev) : prev));
+    }
+  };
+
   const setWorkspaceFile = (
     slot: WorkspaceSlot,
     payload: WorkspaceFilePayload | null,
   ) => {
     if (!payload) {
-      if (slot === "generator") {
-        setGeneratorFile(null);
-        setGeneratorPath("");
-      } else {
-        setSolutionFile(null);
-        setSolutionPath("");
-      }
-
+      setFile(slot, null);
+      setPath(slot, "");
       setActiveFileSlot((prev) => (prev === slot ? null : prev));
       return;
     }
 
     const nextFile = buildWorkspaceFile(payload);
-
-    if (slot === "generator") {
-      setGeneratorFile(nextFile);
-      setGeneratorPath(nextFile.path);
-    } else {
-      setSolutionFile(nextFile);
-      setSolutionPath(nextFile.path);
-    }
-
+    setFile(slot, nextFile);
+    setPath(slot, nextFile.path);
     setActiveFileSlot(slot);
   };
 
@@ -84,12 +94,7 @@ export function useWorkspaceFiles(
       const payload = await invoke<WorkspaceFilePayload | null>(
         "pick_workspace_file",
       );
-
-      if (!payload) {
-        return;
-      }
-
-      setWorkspaceFile(slot, payload);
+      if (payload) setWorkspaceFile(slot, payload);
     } catch (error) {
       appendLog("error", `File picker failed: ${String(error)}`);
     }
@@ -98,66 +103,30 @@ export function useWorkspaceFiles(
   const browseDirectory = async (setter: (path: string) => void) => {
     try {
       const selectedDir = await invoke<string | null>("pick_directory");
-
-      if (selectedDir) {
-        setter(selectedDir);
-      }
+      if (selectedDir) setter(selectedDir);
     } catch (error) {
       appendLog("error", `Directory picker failed: ${String(error)}`);
     }
   };
 
-  const setIsDirty = (isDirty: boolean) => {
-    if (activeFileSlot === "generator") {
-      setGeneratorFile((prev) => (prev ? { ...prev, isDirty } : prev));
-    } else if (activeFileSlot === "solution") {
-      setSolutionFile((prev) => (prev ? { ...prev, isDirty } : prev));
-    }
-  };
+  const setIsDirty = (isDirty: boolean) =>
+    updateActiveFile((file) => ({ ...file, isDirty }));
 
-  const handleCodeChange = (newValue: string | undefined) => {
-    const nextValue = newValue ?? "";
-
-    if (activeFileSlot === "generator") {
-      setGeneratorFile((prev) => (prev ? { ...prev, value: nextValue } : prev));
-      return;
-    }
-
-    if (activeFileSlot === "solution") {
-      setSolutionFile((prev) => (prev ? { ...prev, value: nextValue } : prev));
-    }
-  };
+  const handleCodeChange = (newValue: string | undefined) =>
+    updateActiveFile((file) => ({ ...file, value: newValue ?? "" }));
 
   const saveActiveFile = async () => {
-    const currentFile =
-      activeFileSlot === "generator"
-        ? generatorFile
-        : activeFileSlot === "solution"
-          ? solutionFile
-          : null;
-
-    if (!currentFile) {
-      return;
-    }
+    if (!activeFile) return;
 
     try {
       await invoke("save_workspace_file", {
-        path: currentFile.path,
-        content: currentFile.value,
+        path: activeFile.path,
+        content: activeFile.value,
       });
-
-      if (activeFileSlot === "generator") {
-        setGeneratorFile((prev) => (prev ? { ...prev, isDirty: false } : prev));
-      } else if (activeFileSlot === "solution") {
-        setSolutionFile((prev) => (prev ? { ...prev, isDirty: false } : prev));
-      }
-
-      appendLog("info", `Saved ${currentFile.name}`);
+      updateActiveFile((file) => ({ ...file, isDirty: false }));
+      appendLog("info", `Saved ${activeFile.name}`);
     } catch (error) {
-      appendLog(
-        "error",
-        `Failed to save ${currentFile.name}: ${String(error)}`,
-      );
+      appendLog("error", `Failed to save ${activeFile.name}: ${String(error)}`);
     }
   };
 
@@ -168,6 +137,7 @@ export function useWorkspaceFiles(
     solutionPath,
     outputPath,
     activeFileSlot,
+    activeFile,
     setGeneratorPath,
     setSolutionPath,
     setOutputPath,

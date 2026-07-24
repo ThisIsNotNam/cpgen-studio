@@ -4,8 +4,15 @@ import PathPicker from "./PathPicker";
 import ParametersForm from "./ParametersForm";
 import VisualSchemaBuilder from "./schema/VisualSchemaBuilder";
 
+type Tab = "files" | "visual";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "files", label: "Code Files" },
+  { id: "visual", label: "Visual Builder" },
+];
+
 export default function FilesPanel() {
-  const [activeTab, setActiveTab] = useState<"files" | "visual">("files");
+  const [activeTab, setActiveTab] = useState<Tab>("files");
 
   const {
     generatorPath,
@@ -20,35 +27,50 @@ export default function FilesPanel() {
     setWorkspaceFile,
   } = useWorkspaceContext();
 
+  // Shared by both tabs, so it's built once instead of duplicated per-branch.
+  const solutionAndOutputPickers = (
+    <>
+      <PathPicker
+        label="Solution file"
+        path={solutionPath}
+        placeholder="C:\path\to\solution.cpp"
+        onChange={setSolutionPath}
+        onSubmit={(path) => loadWorkspaceFile("solution", path)}
+        onBrowse={() => browseWorkspaceFile("solution")}
+        onClear={() => setWorkspaceFile("solution", null)}
+      />
+
+      <PathPicker
+        label="Output path"
+        path={outputPath}
+        placeholder="C:\path\to\output"
+        onChange={setOutputPath}
+        onSubmit={() => {}}
+        onBrowse={() => browseDirectory(setOutputPath)}
+        onClear={() => setOutputPath("")}
+      />
+    </>
+  );
+
   return (
     <aside className="flex flex-col h-full bg-[var(--bg-secondary)] border-r border-[var(--border)] text-[var(--text-primary)] text-xs select-none">
-      {/* Header Tabs */}
       <div className="flex h-[38px] bg-[var(--bg-secondary)] border-b border-[var(--border)] px-2 gap-1 items-stretch">
-        <button
-          type="button"
-          className={`flex-1 flex items-center justify-center font-semibold transition-colors border-b-2 text-xs cursor-pointer ${
-            activeTab === "files"
-              ? "text-[var(--text-primary)] border-[var(--accent)] bg-[var(--bg-primary)]"
-              : "text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-          }`}
-          onClick={() => setActiveTab("files")}
-        >
-          Code Files
-        </button>
-        <button
-          type="button"
-          className={`flex-1 flex items-center justify-center font-semibold transition-colors border-b-2 text-xs cursor-pointer ${
-            activeTab === "visual"
-              ? "text-[var(--text-primary)] border-[var(--accent)] bg-[var(--bg-primary)]"
-              : "text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-          }`}
-          onClick={() => setActiveTab("visual")}
-        >
-          Visual Builder
-        </button>
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`flex-1 flex items-center justify-center font-semibold transition-colors border-b-2 text-xs cursor-pointer ${
+              activeTab === tab.id
+                ? "text-[var(--text-primary)] border-[var(--accent)] bg-[var(--bg-primary)]"
+                : "text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Body Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {activeTab === "files" ? (
           <>
@@ -61,55 +83,14 @@ export default function FilesPanel() {
               onBrowse={() => browseWorkspaceFile("generator")}
               onClear={() => setWorkspaceFile("generator", null)}
             />
-
-            <PathPicker
-              label="Solution file"
-              path={solutionPath}
-              placeholder="C:\path\to\solution.cpp"
-              onChange={setSolutionPath}
-              onSubmit={(path) => loadWorkspaceFile("solution", path)}
-              onBrowse={() => browseWorkspaceFile("solution")}
-              onClear={() => setWorkspaceFile("solution", null)}
-            />
-
-            <PathPicker
-              label="Output path"
-              path={outputPath}
-              placeholder="C:\path\to\output"
-              onChange={setOutputPath}
-              onSubmit={(_) => {}}
-              onBrowse={() => browseDirectory(setOutputPath)}
-              onClear={() => setOutputPath("")}
-            />
-
+            {solutionAndOutputPickers}
             <ParametersForm />
           </>
         ) : (
           <>
-            <PathPicker
-              label="Solution file"
-              path={solutionPath}
-              placeholder="C:\path\to\solution.cpp"
-              onChange={setSolutionPath}
-              onSubmit={(path) => loadWorkspaceFile("solution", path)}
-              onBrowse={() => browseWorkspaceFile("solution")}
-              onClear={() => setWorkspaceFile("solution", null)}
-            />
-
-            <PathPicker
-              label="Output path"
-              path={outputPath}
-              placeholder="C:\path\to\output"
-              onChange={setOutputPath}
-              onSubmit={(_) => {}}
-              onBrowse={() => browseDirectory(setOutputPath)}
-              onClear={() => setOutputPath("")}
-            />
-
+            {solutionAndOutputPickers}
             <div className="h-px bg-[var(--border)] my-3" />
-
             <VisualSchemaBuilder />
-
             <ParametersForm />
           </>
         )}

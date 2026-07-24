@@ -10,10 +10,10 @@ export default function CPGenStudio() {
   }, []);
 
   return (
-    <div className="app-frame">
-      <div className="workspace-shell">
-        <Group orientation="vertical" className="workspace-panels">
-          <Panel className="editor-surface">
+    <div className="w-full h-full min-h-0">
+      <div className="w-full h-full min-h-0 flex flex-col overflow-hidden">
+        <Group orientation="vertical" className="flex-1 min-h-0">
+          <Panel className="h-full">
             <EditorCanvas />
           </Panel>
 
@@ -26,7 +26,7 @@ export default function CPGenStudio() {
             defaultSize="220px"
             minSize="140px"
             maxSize="480px"
-            className="terminal-shell"
+            className="h-full border-t border-[var(--border)]"
           >
             <ConsoleLogs />
           </Panel>

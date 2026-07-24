@@ -29,8 +29,6 @@ export interface ConfigState {
   indexDelivery: "argv[1]" | "stdin";
 }
 
-export type DragTarget = "left" | "terminal" | null;
-
 export type FieldKind = "int" | "string" | "array" | "loop";
 
 export interface BaseNode {

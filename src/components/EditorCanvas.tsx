@@ -5,10 +5,10 @@ import EditorPanel from "./EditorPanel";
 
 export default function EditorCanvas() {
   return (
-    <div className="editor-area">
+    <div className="flex flex-col w-full h-full min-h-0 bg-[var(--bg-primary)]">
       <EditorToolbar />
 
-      <Group className="content-panels">
+      <Group className="flex-1 min-h-0 bg-[var(--bg-primary)]">
         <Panel defaultSize="340px" minSize="280px" maxSize="640px">
           <FilesPanel />
         </Panel>

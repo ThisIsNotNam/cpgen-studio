@@ -15,6 +15,7 @@ interface WorkspaceFilesContextValue {
   solutionPath: string;
   outputPath: string;
   activeFileSlot: WorkspaceSlot | null;
+  activeFile: WorkspaceFile | null;
   setGeneratorPath: (path: string) => void;
   setSolutionPath: (path: string) => void;
   setOutputPath: (path: string) => void;

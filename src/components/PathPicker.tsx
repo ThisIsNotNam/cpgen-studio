@@ -1,3 +1,5 @@
+import Section from "./Section";
+
 interface PathPickerProps {
   label: string;
   path: string;
@@ -7,6 +9,12 @@ interface PathPickerProps {
   onBrowse: () => void;
   onClear: () => void;
 }
+
+const INPUT_CLASS =
+  "flex-1 min-w-0 h-[34px] px-2.5 border border-[var(--border)] rounded-md bg-[var(--bg-input)] text-[var(--text-primary)] text-[13px] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]";
+
+const BUTTON_CLASS =
+  "h-[34px] px-3 shrink-0 rounded-md border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[13px] cursor-pointer hover:border-[var(--border-light)] hover:text-[var(--text-primary)]";
 
 export default function PathPicker({
   label,
@@ -18,11 +26,10 @@ export default function PathPicker({
   onClear,
 }: PathPickerProps) {
   return (
-    <div className="section">
-      <div className="section-title">{label}</div>
-      <div className="path-picker-row">
+    <Section title={label}>
+      <div className="flex items-center gap-2 min-w-0">
         <input
-          className="path-picker-input"
+          className={INPUT_CLASS}
           type="text"
           value={path}
           placeholder={placeholder}
@@ -34,13 +41,13 @@ export default function PathPicker({
             }
           }}
         />
-        <button type="button" className="path-picker-button" onClick={onBrowse}>
+        <button type="button" className={BUTTON_CLASS} onClick={onBrowse}>
           Browse
         </button>
-        <button type="button" className="path-picker-clear" onClick={onClear}>
+        <button type="button" className={BUTTON_CLASS} onClick={onClear}>
           Clear
         </button>
       </div>
-    </div>
+    </Section>
   );
 }

@@ -75,10 +75,10 @@ pub async fn run(
 
     if let Some(input) = stdin {
         if let Some(mut child_stdin) = child.stdin.take() {
-            child_stdin
-                .write_all(input.as_bytes())
-                .await
-                .map_err(|e| format!("Failed to write stdin: {e}"))?;
+            let input = input.to_string();
+            tokio::spawn(async move {
+                let _ = child_stdin.write_all(input.as_bytes()).await;
+            });
         }
     }
 
@@ -86,7 +86,7 @@ pub async fn run(
         Ok(Ok(output)) => output,
         Ok(Err(e)) => return Err(format!("Failed waiting for child process: {e}")),
         Err(_) => {
-            return Err("Time Limit Exceed".to_string());
+            return Err("Time Limit Exceeded".to_string());
         }
     };
 

@@ -5,7 +5,7 @@ import { PipelineProvider } from "./context/PipelineContext";
 
 function App() {
   return (
-    <div className="app-shell">
+    <div className="w-full h-full min-h-0 antialiased">
       <ConsoleLogsProvider>
         <WorkspaceProvider>
           <PipelineProvider>

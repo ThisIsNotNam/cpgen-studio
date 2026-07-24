@@ -1,10 +1,20 @@
-import type { FieldKind } from "../../types.tsx";
+import type { FieldKind } from "../../types";
 
 interface SchemaToolbarProps {
   selectedKind: FieldKind | null;
   onAddNode: (kind: FieldKind) => void;
   onClearSelection: () => void;
 }
+
+const ADDABLE_KINDS: { kind: FieldKind; label: string }[] = [
+  { kind: "int", label: "+ Int" },
+  { kind: "string", label: "+ String" },
+  { kind: "array", label: "+ Array" },
+  { kind: "loop", label: "+ Loop" },
+];
+
+const BUTTON_CLASS =
+  "px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer";
 
 export default function SchemaToolbar({
   selectedKind,
@@ -15,7 +25,6 @@ export default function SchemaToolbar({
 
   return (
     <div className="space-y-2 pt-2 border-t border-[var(--border)]">
-      {/* Target Container Badge */}
       <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
         <span>
           Target:{" "}
@@ -35,36 +44,17 @@ export default function SchemaToolbar({
         )}
       </div>
 
-      {/* Buttons Grid */}
       <div className="grid grid-cols-4 gap-1.5">
-        <button
-          type="button"
-          onClick={() => onAddNode("int")}
-          className="px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer"
-        >
-          + Int
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddNode("string")}
-          className="px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer"
-        >
-          + String
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddNode("array")}
-          className="px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer"
-        >
-          + Array
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddNode("loop")}
-          className="px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer"
-        >
-          + Loop
-        </button>
+        {ADDABLE_KINDS.map(({ kind, label }) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => onAddNode(kind)}
+            className={BUTTON_CLASS}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );
