@@ -1,0 +1,107 @@
+use std::path::Path;
+use std::process::Stdio;
+use std::time::Duration;
+use tokio::{fs, io::AsyncWriteExt, process::Command, time::timeout};
+
+pub fn clean_path(path: &Path) -> String {
+    let path_str = path.to_str().unwrap();
+    path_str
+        .strip_prefix(r"\\?\")
+        .unwrap_or(path_str)
+        .to_string()
+}
+
+pub async fn prep_executable(source: &Path) -> Result<(String, Vec<String>), String> {
+    match source.extension().and_then(|s| s.to_str()) {
+        Some("py") => Ok(("python".to_string(), vec![clean_path(source)])),
+        Some("cpp") => {
+            let parent = source
+                .parent()
+                .ok_or_else(|| "Failed to get source directory".to_string())?;
+
+            let build_dir = parent.join("build");
+            fs::create_dir_all(&build_dir)
+                .await
+                .map_err(|e| format!("Failed to create build subdirectory: {e}"))?;
+
+            let file_stem = source
+                .file_stem()
+                .ok_or_else(|| "Failed to get file stem".to_string())?;
+
+            let exe = build_dir.join(file_stem).with_extension("exe");
+
+            let output = Command::new("g++")
+                .args([
+                    "-O3",
+                    clean_path(source).as_str(),
+                    "-o",
+                    clean_path(&exe).as_str(),
+                ])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to execute g++ compiler: {e}"))?;
+
+            if output.status.success() {
+                Ok((clean_path(&exe), vec![]))
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(format!("Compilation failed:\n{stderr}"))
+            }
+        }
+        Some(other) => Err(format!("Unknown extension: {other}")),
+        None => Err("Unable to find file extension".to_string()),
+    }
+}
+
+pub async fn run(
+    command: &(String, Vec<String>),
+    timeout_duration: Duration,
+    stdin: Option<&str>,
+) -> Result<String, String> {
+    let (program, args) = command;
+
+    let mut child = Command::new(program)
+        .args(args)
+        .kill_on_drop(true)
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start process: {e}"))?;
+
+    if let Some(input) = stdin {
+        if let Some(mut child_stdin) = child.stdin.take() {
+            child_stdin
+                .write_all(input.as_bytes())
+                .await
+                .map_err(|e| format!("Failed to write stdin: {e}"))?;
+        }
+    }
+
+    let output = match timeout(timeout_duration, child.wait_with_output()).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => return Err(format!("Failed waiting for child process: {e}")),
+        Err(_) => {
+            return Err("Time Limit Exceed".to_string());
+        }
+    };
+
+    if !output.status.success() {
+        let stderr_string = String::from_utf8(output.stderr)
+            .map_err(|e| format!("Unable to convert output into string: {e}"))?;
+        return Err(format!(
+            "Runtime Error (Exit code {})\nStderr:\n{}",
+            output.status.code().unwrap_or(-69),
+            stderr_string
+        ));
+    }
+
+    let stdout_string =
+        String::from_utf8(output.stdout).map_err(|e| format!("Invalid stdout: {e}"))?;
+
+    Ok(stdout_string.trim().to_string())
+}

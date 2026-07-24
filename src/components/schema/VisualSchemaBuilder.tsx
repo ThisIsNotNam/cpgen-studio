@@ -1,0 +1,175 @@
+import { useState, useCallback } from "react";
+import {
+  DndContext,
+  pointerWithin,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type CollisionDetection,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+
+import type { SchemaNode, FieldKind } from "../../types";
+import {
+  findNodeRecursive,
+  removeNodeRecursive,
+  updateNodeRecursive,
+  updateLoopChildren,
+  moveNodeInTree,
+} from "../../utils/schemaTree";
+
+import NodeCard from "./NodeCard";
+import SchemaToolbar from "./SchemaToolbar";
+
+function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
+  if (list.some((n) => n.id === id)) return list;
+  for (const node of list) {
+    if (node.kind === "loop") {
+      const found = findParentList(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+const DEFAULT_NODES: SchemaNode[] = [
+  {
+    id: crypto.randomUUID(),
+    kind: "int",
+    varName: "N",
+    min: "1",
+    max: "200000",
+  },
+  {
+    id: crypto.randomUUID(),
+    kind: "loop",
+    children: [
+      {
+        id: crypto.randomUUID(),
+        kind: "array",
+        varName: "A",
+        length: "N",
+        elementType: "int",
+        min: "1",
+        max: "1000000",
+        separator: "space",
+      },
+    ],
+  },
+];
+
+export default function VisualSchemaBuilder() {
+  const [nodes, setNodes] = useState<SchemaNode[]>(DEFAULT_NODES);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+  );
+
+  const sameContainerCollision: CollisionDetection = useCallback(
+    (args) => {
+      const collisions = pointerWithin(args);
+      const activeParent = findParentList(nodes, String(args.active.id));
+      if (!collisions.length || !activeParent) return collisions;
+      const siblingIds = new Set(activeParent.map((n) => n.id));
+      return collisions.filter((c) => siblingIds.has(String(c.id)));
+    },
+    [nodes],
+  );
+
+  const selectedNode = findNodeRecursive(nodes, selectedId || "");
+  const selectedKind = selectedNode?.kind || null;
+
+  const handleAddNode = (kind: FieldKind) => {
+    const id = crypto.randomUUID();
+    const defaults: Record<FieldKind, SchemaNode> = {
+      int: { id, kind: "int", varName: "", min: "1", max: "100" },
+      string: {
+        id,
+        kind: "string",
+        varName: "",
+        length: "10",
+        charset: "lowercase",
+      },
+      array: {
+        id,
+        kind: "array",
+        varName: "",
+        length: "N",
+        elementType: "int",
+        min: "1",
+        max: "100",
+        separator: "space",
+      },
+      loop: { id, kind: "loop", children: [] },
+    };
+
+    const newNode = defaults[kind];
+    setNodes((prev) =>
+      selectedKind === "loop" && selectedId
+        ? updateLoopChildren(prev, selectedId, (c) => [...c, newNode])
+        : [...prev, newNode],
+    );
+  };
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (over && active.id !== over.id) {
+      setNodes((prev) =>
+        moveNodeInTree(prev, active.id as string, over.id as string),
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-3" onClick={() => setSelectedId(null)}>
+      <div className="flex items-center justify-between text-[var(--text-muted)] font-bold text-[11px] uppercase tracking-wider">
+        <span>Test Structure</span>
+        <span className="text-[10px] font-normal text-[var(--text-muted)]">
+          Click block to select container
+        </span>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={sameContainerCollision}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={nodes.map((n) => n.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2 min-h-[40px]">
+            {nodes.map((node) => (
+              <NodeCard
+                key={node.id}
+                node={node}
+                selectedId={selectedId}
+                onSelect={(id, e) => {
+                  e.stopPropagation();
+                  setSelectedId(id === selectedId ? null : id);
+                }}
+                onUpdate={(id, updated) =>
+                  setNodes((prev) => updateNodeRecursive(prev, id, updated))
+                }
+                onRemove={(id) => {
+                  if (selectedId === id) setSelectedId(null);
+                  setNodes((prev) => removeNodeRecursive(prev, id));
+                }}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      <SchemaToolbar
+        selectedKind={selectedKind}
+        onAddNode={handleAddNode}
+        onClearSelection={() => setSelectedId(null)}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,87 @@
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { ConfigState, LogLevel, WorkspaceFile } from "../types";
+
+interface StatusPayload {
+  step: string;
+  message: string;
+}
+
+export function usePipelineRunner(
+  generatorFile: WorkspaceFile | null,
+  solutionFile: WorkspaceFile | null,
+  outputPath: string | null,
+  config: ConfigState,
+  appendLog: (level: LogLevel, message: string) => void,
+) {
+  const [isRunning, setIsRunning] = useState(false);
+  const unlistenRef = useRef<UnlistenFn | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (unlistenRef.current) {
+        unlistenRef.current();
+      }
+    };
+  }, []);
+
+  const executePipeline = async () => {
+    if (isRunning) return;
+
+    if (!generatorFile?.path || !solutionFile?.path || !outputPath) {
+      appendLog(
+        "warn",
+        "Generator file, solution file, and output path must all be selected.",
+      );
+      return;
+    }
+
+    setIsRunning(true);
+    appendLog("info", "Starting test generation pipeline...");
+
+    try {
+      unlistenRef.current = await listen<StatusPayload>(
+        "test-status",
+        (event) => {
+          const { step, message } = event.payload;
+
+          switch (step) {
+            case "finished":
+              appendLog("success", message);
+              break;
+            case "run_executable":
+              appendLog("info", message);
+              break;
+            case "prep_executable":
+              appendLog("cmd", message);
+              break;
+            default:
+              appendLog("info", message);
+          }
+        },
+      );
+
+      await invoke("generate_tests", {
+        genPath: generatorFile.path,
+        solPath: solutionFile.path,
+        outputPath: outputPath,
+        testName: "test",
+        testCount: config.batches,
+        indexAsArg: config.indexDelivery === "argv[1]",
+      });
+
+      appendLog("success", "All tests generated and saved successfully!");
+    } catch (err) {
+      appendLog("error", typeof err === "string" ? err : String(err));
+    } finally {
+      if (unlistenRef.current) {
+        unlistenRef.current();
+        unlistenRef.current = null;
+      }
+      setIsRunning(false);
+    }
+  };
+
+  return { isRunning, executePipeline };
+}
