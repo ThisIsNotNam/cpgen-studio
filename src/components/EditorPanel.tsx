@@ -39,6 +39,9 @@ export default function EditorPanel() {
     setIsDirty,
   } = useWorkspaceContext();
 
+  const activeFileRef = useRef(activeFile);
+  activeFileRef.current = activeFile;
+
   const handleCodeChangeRef = useRef(handleCodeChange);
   handleCodeChangeRef.current = handleCodeChange;
 
@@ -54,7 +57,10 @@ export default function EditorPanel() {
     const model = editorInstance.getModel() as TrackedModel | null;
     if (!model) return;
 
-    if (model._savedVersionId === undefined) {
+    if (
+      !activeFileRef.current?.isDirty ||
+      model._savedVersionId === undefined
+    ) {
       model._savedVersionId = model.getAlternativeVersionId();
     }
 
@@ -130,6 +136,7 @@ export default function EditorPanel() {
               path={activeFile.path}
               language={activeFile.language}
               defaultValue={activeFile.value}
+              keepCurrentModel={true}
               onMount={handleEditorMount}
               options={EDITOR_OPTIONS}
             />
