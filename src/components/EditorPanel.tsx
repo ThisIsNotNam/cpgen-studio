@@ -19,9 +19,9 @@ const EDITOR_OPTIONS = {
 const TAB_CLASS =
   "flex items-center min-w-0 max-w-[200px] px-3.5 border-0 border-b-2 text-[13px] overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 const TAB_INACTIVE_CLASS =
-  "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]";
+  "border-transparent text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-tertiary)";
 const TAB_ACTIVE_CLASS =
-  "border-[var(--accent)] text-[var(--text-primary)] bg-[var(--bg-primary)]";
+  "border-(--accent) text-(--text-primary) bg-(--bg-primary)";
 
 type TrackedModel = import("monaco-editor").editor.ITextModel & {
   _savedVersionId?: number;
@@ -39,9 +39,6 @@ export default function EditorPanel() {
     setIsDirty,
   } = useWorkspaceContext();
 
-  const currentFileRef = useRef(activeFile);
-  currentFileRef.current = activeFile;
-
   const handleCodeChangeRef = useRef(handleCodeChange);
   handleCodeChangeRef.current = handleCodeChange;
 
@@ -51,6 +48,8 @@ export default function EditorPanel() {
   const setIsDirtyRef = useRef(setIsDirty);
   setIsDirtyRef.current = setIsDirty;
 
+  const prevIsDirtyRef = useRef<boolean | null>(null);
+
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
     const model = editorInstance.getModel() as TrackedModel | null;
     if (!model) return;
@@ -59,15 +58,19 @@ export default function EditorPanel() {
       model._savedVersionId = model.getAlternativeVersionId();
     }
 
-    // Sync dirty indicator state on mount
     const initialDirty =
       model.getAlternativeVersionId() !== model._savedVersionId;
+    prevIsDirtyRef.current = initialDirty;
     setIsDirtyRef.current(initialDirty);
 
-    // Listen for model changes (typing, Ctrl+Z, Ctrl+Y)
     const subscription = model.onDidChangeContent(() => {
       const isDirty = model.getAlternativeVersionId() !== model._savedVersionId;
-      setIsDirtyRef.current(isDirty);
+
+      if (isDirty !== prevIsDirtyRef.current) {
+        prevIsDirtyRef.current = isDirty;
+        setIsDirtyRef.current(isDirty);
+      }
+
       handleCodeChangeRef.current(model.getValue());
     });
 
@@ -76,6 +79,7 @@ export default function EditorPanel() {
       async () => {
         await saveRef.current();
         model._savedVersionId = model.getAlternativeVersionId();
+        prevIsDirtyRef.current = false;
         setIsDirtyRef.current(false);
       },
     );
@@ -86,8 +90,8 @@ export default function EditorPanel() {
   };
 
   return (
-    <section className="h-full min-w-0 min-h-0 flex flex-col overflow-hidden bg-[var(--bg-primary)]">
-      <div className="h-[38px] shrink-0 flex items-stretch gap-0.5 bg-[var(--bg-secondary)] border-b border-[var(--border)] px-2">
+    <section className="h-full min-w-0 min-h-0 flex flex-col overflow-hidden bg-(--bg-primary)">
+      <div className="h-9.5 shrink-0 flex items-stretch gap-0.5 bg-(--bg-secondary) border-b border-(--border) px-2">
         <button
           type="button"
           className={`${TAB_CLASS} ${activeFileSlot === "generator" ? TAB_ACTIVE_CLASS : TAB_INACTIVE_CLASS}`}
@@ -110,7 +114,7 @@ export default function EditorPanel() {
 
         <span className="flex-1" />
         {activeFile && (
-          <span className="self-center text-[var(--text-muted)] uppercase text-[12px]">
+          <span className="self-center text-(--text-muted) uppercase text-[12px]">
             {activeFile.isDirty ? "Unsaved" : "Saved"} • {activeFile.language}
           </span>
         )}
@@ -125,12 +129,12 @@ export default function EditorPanel() {
               theme="vs-dark"
               path={activeFile.path}
               language={activeFile.language}
-              defaultValue={activeFile.value} // Uncontrolled: preserves Monaco undo stack
+              defaultValue={activeFile.value}
               onMount={handleEditorMount}
               options={EDITOR_OPTIONS}
             />
           ) : (
-            <div className="h-full min-h-0 flex items-center justify-center p-6 text-[var(--text-muted)] text-sm text-center bg-[var(--bg-primary)]">
+            <div className="h-full min-h-0 flex items-center justify-center p-6 text-(--text-muted) text-sm text-center bg-(--bg-primary)">
               Choose a generator or solution file to start editing.
             </div>
           )}

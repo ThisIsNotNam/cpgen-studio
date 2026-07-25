@@ -1,14 +1,27 @@
-import { Group, Panel, Separator } from "react-resizable-panels";
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+} from "react-resizable-panels";
 import EditorToolbar from "./EditorToolbar";
 import FilesPanel from "./FilesPanel";
 import EditorPanel from "./EditorPanel";
 
 export default function EditorCanvas() {
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: "cpgen_editor_layout",
+  });
+
   return (
-    <div className="flex flex-col w-full h-full min-h-0 bg-[var(--bg-primary)]">
+    <div className="flex flex-col w-full h-full min-h-0 bg-(--bg-primary)">
       <EditorToolbar />
 
-      <Group className="flex-1 min-h-0 bg-[var(--bg-primary)]">
+      <Group
+        className="flex-1 min-h-0 bg-(--bg-primary)"
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+      >
         <Panel defaultSize="340px" minSize="280px" maxSize="640px">
           <FilesPanel />
         </Panel>

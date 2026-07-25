@@ -6,17 +6,17 @@ interface ConsoleLogLineProps {
 
 const LEVEL_COLOR: Record<LogEntry["level"], string> = {
   info: "text-[#60a5fa]",
-  success: "text-[var(--success)]",
-  warn: "text-[var(--warning)]",
-  error: "text-[var(--danger)]",
-  dim: "text-[var(--text-muted)]",
+  success: "text-(--success)",
+  warn: "text-(--warning)",
+  error: "text-(--danger)",
+  dim: "text-(--text-muted)",
   cmd: "text-[#c084fc]",
 };
 
 export default function ConsoleLogLine({ log }: ConsoleLogLineProps) {
   return (
     <div>
-      <span className="text-[var(--text-muted)]">[{log.time}]</span>{" "}
+      <span className="text-(--text-muted)">[{log.time}]</span>{" "}
       <span className={LEVEL_COLOR[log.level]}>{log.level}</span> {log.message}
     </div>
   );

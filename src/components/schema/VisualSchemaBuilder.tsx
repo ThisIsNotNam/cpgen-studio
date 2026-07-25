@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   DndContext,
   pointerWithin,
@@ -25,6 +25,8 @@ import {
 import NodeCard from "./NodeCard";
 import SchemaToolbar from "./SchemaToolbar";
 
+const STORAGE_KEY = "cpgen_schema_nodes";
+
 function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
   if (list.some((n) => n.id === id)) return list;
   for (const node of list) {
@@ -47,23 +49,38 @@ const DEFAULT_NODES: SchemaNode[] = [
   {
     id: crypto.randomUUID(),
     kind: "loop",
+    count: "N",
     children: [
       {
         id: crypto.randomUUID(),
         kind: "array",
         varName: "A",
         length: "N",
-        elementType: "int",
-        min: "1",
-        max: "1000000",
         separator: "space",
+        element: {
+          kind: "string",
+          length: "10",
+          charset: "alphanumeric",
+        },
       },
     ],
   },
 ];
 
 export default function VisualSchemaBuilder() {
-  const [nodes, setNodes] = useState<SchemaNode[]>(DEFAULT_NODES);
+  const [nodes, setNodes] = useState<SchemaNode[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Failed to parse saved schema nodes", e);
+    }
+    return DEFAULT_NODES;
+  });
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
+  }, [nodes]);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -88,6 +105,14 @@ export default function VisualSchemaBuilder() {
     const id = crypto.randomUUID();
     const defaults: Record<FieldKind, SchemaNode> = {
       int: { id, kind: "int", varName: "", min: "1", max: "100" },
+      float: {
+        id,
+        kind: "float",
+        varName: "",
+        min: "0.0",
+        max: "1.0",
+        precision: "2",
+      },
       string: {
         id,
         kind: "string",
@@ -100,12 +125,14 @@ export default function VisualSchemaBuilder() {
         kind: "array",
         varName: "",
         length: "N",
-        elementType: "int",
-        min: "1",
-        max: "100",
         separator: "space",
+        element: {
+          kind: "int",
+          min: "1",
+          max: "100",
+        },
       },
-      loop: { id, kind: "loop", children: [] },
+      loop: { id, kind: "loop", count: "T", children: [] },
     };
 
     const newNode = defaults[kind];
@@ -126,9 +153,9 @@ export default function VisualSchemaBuilder() {
 
   return (
     <div className="space-y-3" onClick={() => setSelectedId(null)}>
-      <div className="flex items-center justify-between text-[var(--text-muted)] font-bold text-[11px] uppercase tracking-wider">
+      <div className="flex items-center justify-between text-(--text-muted) font-bold text-[11px] uppercase tracking-wider">
         <span>Test Structure</span>
-        <span className="text-[10px] font-normal text-[var(--text-muted)]">
+        <span className="text-[10px] font-normal text-(--text-muted)">
           Click block to select container
         </span>
       </div>
@@ -142,7 +169,7 @@ export default function VisualSchemaBuilder() {
           items={nodes.map((n) => n.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-2 min-h-[40px]">
+          <div className="space-y-2 min-h-10">
             {nodes.map((node) => (
               <NodeCard
                 key={node.id}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { inferLanguage } from "../utils/language";
 import type {
@@ -7,6 +7,15 @@ import type {
   WorkspaceFilePayload,
   WorkspaceSlot,
 } from "../types";
+
+const STORAGE_KEY = "cpgen_workspace_state";
+
+interface StoredWorkspaceState {
+  generatorPath: string;
+  solutionPath: string;
+  outputPath: string;
+  activeFileSlot: WorkspaceSlot | null;
+}
 
 const buildWorkspaceFile = (payload: WorkspaceFilePayload): WorkspaceFile => ({
   path: payload.path,
@@ -19,16 +28,82 @@ const buildWorkspaceFile = (payload: WorkspaceFilePayload): WorkspaceFile => ({
 export function useWorkspaceFiles(
   appendLog: (level: LogLevel, message: string) => void,
 ) {
+  const initialWorkspaceState = (): StoredWorkspaceState => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Failed to parse workspace state", e);
+    }
+    return {
+      generatorPath: "",
+      solutionPath: "",
+      outputPath: "",
+      activeFileSlot: null,
+    };
+  };
+  const [savedState] = useState<StoredWorkspaceState>(initialWorkspaceState);
+
   const [generatorFile, setGeneratorFile] = useState<WorkspaceFile | null>(
     null,
   );
   const [solutionFile, setSolutionFile] = useState<WorkspaceFile | null>(null);
-  const [generatorPath, setGeneratorPath] = useState("");
-  const [solutionPath, setSolutionPath] = useState("");
-  const [outputPath, setOutputPath] = useState("");
+  const [generatorPath, setGeneratorPath] = useState(savedState.generatorPath);
+  const [solutionPath, setSolutionPath] = useState(savedState.solutionPath);
+  const [outputPath, setOutputPath] = useState(savedState.outputPath);
   const [activeFileSlot, setActiveFileSlot] = useState<WorkspaceSlot | null>(
-    null,
+    savedState.activeFileSlot,
   );
+
+  useEffect(() => {
+    const stateToSave: StoredWorkspaceState = {
+      generatorPath,
+      solutionPath,
+      outputPath,
+      activeFileSlot,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+  }, [generatorPath, solutionPath, outputPath, activeFileSlot]);
+
+  useEffect(() => {
+    const restoreFiles = async () => {
+      if (savedState.generatorPath) {
+        try {
+          const payload = await invoke<WorkspaceFilePayload>(
+            "read_workspace_file",
+            {
+              path: savedState.generatorPath,
+            },
+          );
+          setGeneratorFile(buildWorkspaceFile(payload));
+        } catch {
+          appendLog(
+            "dim",
+            `Could not restore generator file: ${savedState.generatorPath}`,
+          );
+        }
+      }
+
+      if (savedState.solutionPath) {
+        try {
+          const payload = await invoke<WorkspaceFilePayload>(
+            "read_workspace_file",
+            {
+              path: savedState.solutionPath,
+            },
+          );
+          setSolutionFile(buildWorkspaceFile(payload));
+        } catch {
+          appendLog(
+            "dim",
+            `Could not restore solution file: ${savedState.solutionPath}`,
+          );
+        }
+      }
+    };
+
+    restoreFiles();
+  }, []);
 
   const activeFile =
     activeFileSlot === "generator"
@@ -115,15 +190,16 @@ export function useWorkspaceFiles(
   const handleCodeChange = (newValue: string | undefined) =>
     updateActiveFile((file) => ({ ...file, value: newValue ?? "" }));
 
-  const saveActiveFile = async () => {
+  const saveActiveFile = async (contentOverride?: string) => {
     if (!activeFile) return;
+    const content = contentOverride ?? activeFile.value;
 
     try {
       await invoke("save_workspace_file", {
         path: activeFile.path,
-        content: activeFile.value,
+        content,
       });
-      updateActiveFile((file) => ({ ...file, isDirty: false }));
+      updateActiveFile((file) => ({ ...file, value: content, isDirty: false }));
       appendLog("info", `Saved ${activeFile.name}`);
     } catch (error) {
       appendLog("error", `Failed to save ${activeFile.name}: ${String(error)}`);

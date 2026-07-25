@@ -1,9 +1,11 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { usePipelineRunner } from "../hooks/usePipelineRunner";
 import { useConsoleLogsContext } from "./ConsoleLogsContext";
 import { useWorkspaceContext } from "./WorkspaceContext";
 import type { ConfigState } from "../types";
+
+const STORAGE_KEY = "cpgen_pipeline_config";
 
 interface PipelineContextValue {
   config: ConfigState;
@@ -18,10 +20,22 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
   const { appendLog } = useConsoleLogsContext();
   const { generatorFile, solutionFile, outputPath } = useWorkspaceContext();
 
-  const [config, setConfig] = useState<ConfigState>({
-    batches: 20,
-    indexDelivery: "argv[1]",
+  const [config, setConfig] = useState<ConfigState>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Failed to restore pipeline config", e);
+    }
+    return {
+      batches: 20,
+      indexDelivery: "stdin",
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  }, [config]);
 
   const onConfigChange = (key: keyof ConfigState, value: string | number) => {
     setConfig((prev) => ({ ...prev, [key]: value }));

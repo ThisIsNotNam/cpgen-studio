@@ -29,7 +29,11 @@ export interface ConfigState {
   indexDelivery: "argv[1]" | "stdin";
 }
 
-export type FieldKind = "int" | "string" | "array" | "loop";
+export type FieldKind = "int" | "float" | "string" | "array" | "loop";
+export type PrimitiveSpec =
+  | Omit<IntNode, "id" | "varName">
+  | Omit<FloatNode, "id" | "varName">
+  | Omit<StringNode, "id" | "varName">;
 
 export interface BaseNode {
   id: string;
@@ -43,6 +47,13 @@ export interface IntNode extends BaseNode {
   max: string;
 }
 
+export interface FloatNode extends BaseNode {
+  kind: "float";
+  min: string;
+  max: string;
+  precision: string;
+}
+
 export interface StringNode extends BaseNode {
   kind: "string";
   length: string;
@@ -53,15 +64,19 @@ export interface StringNode extends BaseNode {
 export interface ArrayNode extends BaseNode {
   kind: "array";
   length: string;
-  elementType: "int" | "string" | "float";
-  min: string;
-  max: string;
   separator: "space" | "newline" | "comma";
+  element: PrimitiveSpec;
 }
 
 export interface LoopNode extends BaseNode {
   kind: "loop";
+  count: string;
   children: SchemaNode[];
 }
 
-export type SchemaNode = IntNode | StringNode | ArrayNode | LoopNode;
+export type SchemaNode =
+  | IntNode
+  | FloatNode
+  | StringNode
+  | ArrayNode
+  | LoopNode;

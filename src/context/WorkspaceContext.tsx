@@ -28,7 +28,7 @@ interface WorkspaceFilesContextValue {
   browseWorkspaceFile: (slot: WorkspaceSlot) => Promise<void>;
   browseDirectory: (setter: (path: string) => void) => Promise<void>;
   handleCodeChange: (newValue: string | undefined) => void;
-  saveActiveFile: () => Promise<void>;
+  saveActiveFile: (contentOverride?: string) => Promise<void>;
   setIsDirty: (isDirty: boolean) => void;
 }
 
@@ -51,7 +51,7 @@ export function useWorkspaceContext() {
   const ctx = useContext(WorkspaceFilesContext);
   if (!ctx) {
     throw new Error(
-      "useWorkspaceContext must be used within a WorkspaceFilesProvider",
+      "useWorkspaceContext must be used within a WorkspaceProvider",
     );
   }
   return ctx;

@@ -8,13 +8,14 @@ interface SchemaToolbarProps {
 
 const ADDABLE_KINDS: { kind: FieldKind; label: string }[] = [
   { kind: "int", label: "+ Int" },
+  { kind: "float", label: "+ Float" },
   { kind: "string", label: "+ String" },
   { kind: "array", label: "+ Array" },
   { kind: "loop", label: "+ Loop" },
 ];
 
 const BUTTON_CLASS =
-  "px-2 py-1.5 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded text-xs transition-colors cursor-pointer";
+  "px-2 py-1.5 bg-(--bg-tertiary) hover:bg-(--bg-secondary) border border-(--border) text-(--text-secondary) hover:text-(--text-primary) rounded text-xs transition-colors cursor-pointer";
 
 export default function SchemaToolbar({
   selectedKind,
@@ -24,11 +25,11 @@ export default function SchemaToolbar({
   const isLoopSelected = selectedKind === "loop";
 
   return (
-    <div className="space-y-2 pt-2 border-t border-[var(--border)]">
-      <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+    <div className="space-y-2 pt-2 border-t border-(--border)">
+      <div className="flex items-center justify-between text-[11px] text-(--text-muted)">
         <span>
           Target:{" "}
-          <strong className="text-[var(--text-primary)]">
+          <strong className="text-(--text-primary)">
             {isLoopSelected ? "Selected Loop Container" : "Root List"}
           </strong>
         </span>
@@ -37,7 +38,7 @@ export default function SchemaToolbar({
           <button
             type="button"
             onClick={onClearSelection}
-            className="text-[10px] underline hover:text-[var(--text-primary)] cursor-pointer"
+            className="text-[10px] underline hover:text-(--text-primary) cursor-pointer"
           >
             Target Root
           </button>

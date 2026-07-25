@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import type { SchemaNode, StringNode, ArrayNode } from "../../types";
+import type {
+  SchemaNode,
+  StringNode,
+  ArrayNode,
+  PrimitiveSpec,
+} from "../../types";
 
 interface NodeFieldsProps {
   node: SchemaNode;
@@ -7,9 +12,9 @@ interface NodeFieldsProps {
 }
 
 const INPUT_CLASS =
-  "w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] px-2 py-1 rounded outline-none focus:border-[var(--accent)]";
+  "w-full bg-(--bg-input) border border-(--border) text-(--text-primary) px-2 py-1 rounded outline-none focus:border-(--accent)";
 const SELECT_CLASS =
-  "w-full bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-primary)] px-1.5 py-1 rounded outline-none focus:border-[var(--accent)]";
+  "w-full bg-(--bg-input) border border-(--border) text-(--text-primary) px-1.5 py-1 rounded outline-none focus:border-(--accent)";
 const LABEL_CLASS = "block text-[10px] text-[var(--text-muted)] mb-1";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -73,43 +78,63 @@ function SelectField<T extends string>({
   );
 }
 
-export default function NodeFields({ node, onUpdate }: NodeFieldsProps) {
-  const update = (patch: Partial<SchemaNode>) => onUpdate(node.id, patch);
-
-  if (node.kind === "loop") {
-    return null;
-  }
-
-  if (node.kind === "int") {
+function PrimitiveFields({
+  spec,
+  onChange,
+}: {
+  spec: PrimitiveSpec;
+  onChange: (updated: PrimitiveSpec) => void;
+}) {
+  if (spec.kind === "int") {
     return (
       <div className="grid grid-cols-2 gap-2">
         <TextField
           label="Min"
-          value={node.min}
-          onChange={(v) => update({ min: v })}
+          value={spec.min}
+          onChange={(v) => onChange({ ...spec, min: v })}
         />
         <TextField
           label="Max"
-          value={node.max}
-          onChange={(v) => update({ max: v })}
+          value={spec.max}
+          onChange={(v) => onChange({ ...spec, max: v })}
         />
       </div>
     );
   }
-
-  if (node.kind === "string") {
+  if (spec.kind === "float") {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <TextField
+          label="Min"
+          value={spec.min}
+          onChange={(v) => onChange({ ...spec, min: v })}
+        />
+        <TextField
+          label="Max"
+          value={spec.max}
+          onChange={(v) => onChange({ ...spec, max: v })}
+        />
+        <TextField
+          label="Precision"
+          value={spec.precision}
+          onChange={(v) => onChange({ ...spec, precision: v })}
+        />
+      </div>
+    );
+  }
+  if (spec.kind === "string") {
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <TextField
-            label="Length / Var"
-            value={node.length}
-            onChange={(v) => update({ length: v })}
+            label="Length"
+            value={spec.length}
+            onChange={(v) => onChange({ ...spec, length: v })}
           />
           <SelectField<StringNode["charset"]>
             label="Charset"
-            value={node.charset}
-            onChange={(v) => update({ charset: v })}
+            value={spec.charset}
+            onChange={(v) => onChange({ ...spec, charset: v })}
             options={[
               { value: "lowercase", label: "a-z (Lowercase)" },
               { value: "uppercase", label: "A-Z (Uppercase)" },
@@ -120,19 +145,44 @@ export default function NodeFields({ node, onUpdate }: NodeFieldsProps) {
           />
         </div>
 
-        {node.charset === "custom" && (
+        {spec.charset === "custom" && (
           <TextField
             label="Custom Characters"
-            value={node.customCharset || ""}
+            value={spec.customCharset || ""}
             placeholder="e.g. ATGC"
-            onChange={(v) => update({ customCharset: v })}
+            onChange={(v) => onChange({ ...spec, customCharset: v })}
           />
         )}
       </div>
     );
   }
+}
+
+export default function NodeFields({ node, onUpdate }: NodeFieldsProps) {
+  const update = (patch: Partial<SchemaNode>) => onUpdate(node.id, patch);
+
+  if (node.kind === "loop") {
+    return (
+      <TextField
+        label="Count / Repeat Var (e.g. T or 10)"
+        value={node.count || ""}
+        placeholder="e.g. T or 10"
+        onChange={(v) => update({ count: v })}
+      />
+    );
+  }
+
+  if (node.kind === "int" || node.kind === "float" || node.kind === "string") {
+    return <PrimitiveFields spec={node} onChange={(spec) => update(spec)} />;
+  }
 
   if (node.kind === "array") {
+    const defaultElements: Record<PrimitiveSpec["kind"], PrimitiveSpec> = {
+      int: { kind: "int", min: "1", max: "100" },
+      float: { kind: "float", min: "0.0", max: "1.0", precision: "2" },
+      string: { kind: "string", length: "10", charset: "lowercase" },
+    };
+
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-3 gap-2">
@@ -141,14 +191,14 @@ export default function NodeFields({ node, onUpdate }: NodeFieldsProps) {
             value={node.length}
             onChange={(v) => update({ length: v })}
           />
-          <SelectField<ArrayNode["elementType"]>
-            label="Element"
-            value={node.elementType}
-            onChange={(v) => update({ elementType: v })}
+          <SelectField<PrimitiveSpec["kind"]>
+            label="Element Type"
+            value={node.element.kind}
+            onChange={(kind) => update({ element: defaultElements[kind] })}
             options={[
               { value: "int", label: "Integer" },
-              { value: "string", label: "String" },
               { value: "float", label: "Float" },
+              { value: "string", label: "String" },
             ]}
           />
           <SelectField<ArrayNode["separator"]>
@@ -163,18 +213,10 @@ export default function NodeFields({ node, onUpdate }: NodeFieldsProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <TextField
-            label="Elem Min"
-            value={node.min}
-            onChange={(v) => update({ min: v })}
-          />
-          <TextField
-            label="Elem Max"
-            value={node.max}
-            onChange={(v) => update({ max: v })}
-          />
-        </div>
+        <PrimitiveFields
+          spec={node.element}
+          onChange={(element) => update({ element })}
+        />
       </div>
     );
   }

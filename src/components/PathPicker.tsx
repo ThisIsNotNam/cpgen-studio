@@ -11,10 +11,10 @@ interface PathPickerProps {
 }
 
 const INPUT_CLASS =
-  "flex-1 min-w-0 h-[34px] px-2.5 border border-[var(--border)] rounded-md bg-[var(--bg-input)] text-[var(--text-primary)] text-[13px] outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]";
+  "flex-1 min-w-0 h-[34px] px-2.5 border border-(--border) rounded-md bg-(--bg-input) text-(--text-primary) text-[13px] outline-none focus:border-(--accent) focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]";
 
 const BUTTON_CLASS =
-  "h-[34px] px-3 shrink-0 rounded-md border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] text-[13px] cursor-pointer hover:border-[var(--border-light)] hover:text-[var(--text-primary)]";
+  "h-[34px] px-3 shrink-0 rounded-md border border-(--border) bg-(--bg-tertiary) text-(--text-secondary) text-[13px] cursor-pointer hover:border-(--border-light) hover:text-(--text-primary)";
 
 export default function PathPicker({
   label,

@@ -53,16 +53,16 @@ export default function FilesPanel() {
   );
 
   return (
-    <aside className="flex flex-col h-full bg-[var(--bg-secondary)] border-r border-[var(--border)] text-[var(--text-primary)] text-xs select-none">
-      <div className="flex h-[38px] bg-[var(--bg-secondary)] border-b border-[var(--border)] px-2 gap-1 items-stretch">
+    <aside className="flex flex-col h-full bg-(--bg-secondary) border-r border-(--border) text-(--text-primary) text-xs select-none">
+      <div className="flex h-9.5 bg-(--bg-secondary) border-b border-(--border) px-2 gap-1 items-stretch">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             className={`flex-1 flex items-center justify-center font-semibold transition-colors border-b-2 text-xs cursor-pointer ${
               activeTab === tab.id
-                ? "text-[var(--text-primary)] border-[var(--accent)] bg-[var(--bg-primary)]"
-                : "text-[var(--text-muted)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                ? "text-(--text-primary) border-(--accent) bg-(--bg-primary)"
+                : "text-(--text-muted) border-transparent hover:text-(--text-primary) hover:bg-(--bg-tertiary)"
             }`}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -89,7 +89,7 @@ export default function FilesPanel() {
         ) : (
           <>
             {solutionAndOutputPickers}
-            <div className="h-px bg-[var(--border)] my-3" />
+            <div className="h-px bg-(--border) my-3" />
             <VisualSchemaBuilder />
             <ParametersForm />
           </>
