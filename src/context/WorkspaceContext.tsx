@@ -28,7 +28,7 @@ interface WorkspaceFilesContextValue {
   browseWorkspaceFile: (slot: WorkspaceSlot) => Promise<void>;
   browseDirectory: (setter: (path: string) => void) => Promise<void>;
   handleCodeChange: (newValue: string | undefined) => void;
-  saveActiveFile: (contentOverride?: string) => Promise<void>;
+  saveActiveFile: () => Promise<boolean>;
   setIsDirty: (isDirty: boolean) => void;
 }
 

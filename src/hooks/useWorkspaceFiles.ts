@@ -190,19 +190,20 @@ export function useWorkspaceFiles(
   const handleCodeChange = (newValue: string | undefined) =>
     updateActiveFile((file) => ({ ...file, value: newValue ?? "" }));
 
-  const saveActiveFile = async (contentOverride?: string) => {
-    if (!activeFile) return;
-    const content = contentOverride ?? activeFile.value;
+  const saveActiveFile = async (): Promise<boolean> => {
+    if (!activeFile) return false;
 
     try {
       await invoke("save_workspace_file", {
         path: activeFile.path,
-        content,
+        content: activeFile.value,
       });
-      updateActiveFile((file) => ({ ...file, value: content, isDirty: false }));
+      updateActiveFile((file) => ({ ...file, isDirty: false }));
       appendLog("info", `Saved ${activeFile.name}`);
+      return true;
     } catch (error) {
       appendLog("error", `Failed to save ${activeFile.name}: ${String(error)}`);
+      return false;
     }
   };
 
