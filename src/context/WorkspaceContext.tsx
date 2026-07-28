@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
 import { useConsoleLogsContext } from "./ConsoleLogsContext";
 import type {
+  GeneratorMode,
   WorkspaceFile,
   WorkspaceFilePayload,
   WorkspaceSlot,
@@ -16,6 +17,8 @@ interface WorkspaceFilesContextValue {
   outputPath: string;
   activeFileSlot: WorkspaceSlot | null;
   activeFile: WorkspaceFile | null;
+  generatorMode: GeneratorMode;
+  setGeneratorMode: (mode: GeneratorMode) => void;
   setGeneratorPath: (path: string) => void;
   setSolutionPath: (path: string) => void;
   setOutputPath: (path: string) => void;
@@ -27,9 +30,9 @@ interface WorkspaceFilesContextValue {
   loadWorkspaceFile: (slot: WorkspaceSlot, path: string) => Promise<void>;
   browseWorkspaceFile: (slot: WorkspaceSlot) => Promise<void>;
   browseDirectory: (setter: (path: string) => void) => Promise<void>;
-  handleCodeChange: (newValue: string | undefined) => void;
+  handleCodeChange: (path: string, newValue: string) => void;
   saveActiveFile: () => Promise<boolean>;
-  setIsDirty: (isDirty: boolean) => void;
+  setIsDirty: (path: string, isDirty: boolean) => void;
 }
 
 const WorkspaceFilesContext = createContext<WorkspaceFilesContextValue | null>(

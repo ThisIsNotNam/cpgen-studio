@@ -1,0 +1,219 @@
+import { useRef, useEffect, useCallback } from "react";
+import type { OnMount } from "@monaco-editor/react";
+import type { editor, IDisposable } from "monaco-editor";
+import type { WorkspaceFile } from "../types";
+
+type TrackedModel = editor.ITextModel & {
+  _savedVersionId?: number;
+};
+
+interface UseMonacoEditorOptions {
+  activeFile: WorkspaceFile | null;
+  handleCodeChange: (path: string, newValue: string) => void;
+  saveActiveFile: () => Promise<boolean>;
+  setIsDirty: (path: string, isDirty: boolean) => void;
+  debounceMs?: number;
+}
+
+export function useMonacoEditor({
+  activeFile,
+  handleCodeChange,
+  saveActiveFile,
+  setIsDirty,
+  debounceMs = 300,
+}: UseMonacoEditorOptions) {
+  const handleCodeChangeRef = useRef(handleCodeChange);
+  handleCodeChangeRef.current = handleCodeChange;
+
+  const saveRef = useRef(saveActiveFile);
+  saveRef.current = saveActiveFile;
+
+  const setIsDirtyRef = useRef(setIsDirty);
+  setIsDirtyRef.current = setIsDirty;
+
+  const activeFileRef = useRef(activeFile);
+  activeFileRef.current = activeFile;
+
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const modelRef = useRef<TrackedModel | null>(null);
+  // Path the *currently bound* model corresponds to (not necessarily activeFile.path,
+  // which may already have moved on by the time an async flush runs).
+  const boundPathRef = useRef<string | null>(null);
+
+  const contentSubRef = useRef<IDisposable | null>(null);
+  const modelChangeSubRef = useRef<IDisposable | null>(null);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // O(1) per keystroke: no getValue(), no string storage. The actual string is
+  // only materialized once, lazily, when flush() runs.
+  const hasPendingEditRef = useRef(false);
+  const isProgrammaticUpdateRef = useRef(false);
+
+  const lastSentValueRef = useRef<string | null>(activeFile?.value ?? null);
+  const prevIsDirtyRef = useRef<boolean | null>(null);
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (!hasPendingEditRef.current) return;
+    hasPendingEditRef.current = false;
+
+    if (
+      !modelRef.current ||
+      modelRef.current.isDisposed() ||
+      !boundPathRef.current
+    )
+      return;
+
+    const value = modelRef.current.getValue();
+    lastSentValueRef.current = value;
+    handleCodeChangeRef.current(boundPathRef.current, value);
+  }, []);
+
+  const handleEditorMount: OnMount = (editorInstance, monaco) => {
+    editorRef.current = editorInstance;
+
+    const bindModel = (model: TrackedModel | null) => {
+      // Flush whatever was pending on the *previous* model before losing the ref to it.
+      flush();
+
+      contentSubRef.current?.dispose();
+      contentSubRef.current = null;
+
+      modelRef.current = model;
+      boundPathRef.current = activeFileRef.current?.path ?? null;
+
+      if (!model) return;
+
+      const currentFile = activeFileRef.current;
+
+      if (model._savedVersionId === undefined && currentFile) {
+        model._savedVersionId = currentFile.isDirty
+          ? -1
+          : model.getAlternativeVersionId();
+      }
+
+      lastSentValueRef.current = currentFile?.value ?? null;
+
+      const isDirty =
+        model._savedVersionId !== undefined &&
+        model.getAlternativeVersionId() !== model._savedVersionId;
+      prevIsDirtyRef.current = isDirty;
+      if (boundPathRef.current) {
+        setIsDirtyRef.current(boundPathRef.current, isDirty);
+      }
+
+      contentSubRef.current = model.onDidChangeContent(() => {
+        if (isProgrammaticUpdateRef.current) return;
+
+        const dirty = model.getAlternativeVersionId() !== model._savedVersionId;
+        if (dirty !== prevIsDirtyRef.current) {
+          prevIsDirtyRef.current = dirty;
+          if (boundPathRef.current)
+            setIsDirtyRef.current(boundPathRef.current, dirty);
+        }
+
+        hasPendingEditRef.current = true;
+
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(flush, debounceMs);
+      });
+    };
+
+    bindModel(editorInstance.getModel() as TrackedModel | null);
+    modelChangeSubRef.current = editorInstance.onDidChangeModel(() => {
+      bindModel(editorInstance.getModel() as TrackedModel | null);
+    });
+
+    editorInstance.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+      async () => {
+        flush();
+        const currentModel = modelRef.current;
+        const savePath = boundPathRef.current;
+        if (!currentModel || currentModel.isDisposed() || !savePath) return;
+
+        const versionAtSave = currentModel.getAlternativeVersionId();
+
+        try {
+          const success = await saveRef.current();
+          if (success && !currentModel.isDisposed()) {
+            currentModel._savedVersionId = versionAtSave;
+            const isStillDirty =
+              currentModel.getAlternativeVersionId() !==
+              currentModel._savedVersionId;
+            if (boundPathRef.current === savePath) {
+              prevIsDirtyRef.current = isStillDirty;
+            }
+            setIsDirtyRef.current(savePath, isStillDirty);
+          }
+        } catch (err) {
+          console.error("Failed to save active file:", err);
+        }
+      },
+    );
+
+    editorInstance.onDidDispose(() => {
+      contentSubRef.current?.dispose();
+      contentSubRef.current = null;
+      modelChangeSubRef.current?.dispose();
+      modelChangeSubRef.current = null;
+      editorRef.current = null;
+      modelRef.current = null;
+      boundPathRef.current = null;
+    });
+  };
+
+  // Safety net: if activeFile.path changes for reasons that don't route through
+  // onDidChangeModel (e.g. the file is closed), make sure nothing pending is lost.
+  // flush() is a no-op unless hasPendingEditRef is set, so this stays cheap.
+  useEffect(() => {
+    flush();
+  }, [activeFile?.path, flush]);
+
+  useEffect(() => {
+    if (!modelRef.current || !activeFile) return;
+    if (boundPathRef.current !== activeFile.path) return;
+
+    // Cheap in practice: when this update originated from our own flush(),
+    // activeFile.value is the exact same string reference we sent, so this
+    // is a pointer check, not a character-by-character scan.
+    if (activeFile.value === lastSentValueRef.current) return;
+
+    const model = modelRef.current;
+    if (model.isDisposed()) return;
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    hasPendingEditRef.current = false;
+
+    isProgrammaticUpdateRef.current = true;
+    try {
+      model.setValue(activeFile.value);
+    } finally {
+      isProgrammaticUpdateRef.current = false;
+    }
+
+    if (!activeFile.isDirty) {
+      model._savedVersionId = model.getAlternativeVersionId();
+      prevIsDirtyRef.current = false;
+      setIsDirtyRef.current(activeFile.path, false);
+    }
+
+    lastSentValueRef.current = activeFile.value;
+  }, [activeFile?.value, activeFile?.isDirty, activeFile?.path]);
+
+  // Flush on complete unmount.
+  useEffect(() => {
+    return () => {
+      flush();
+    };
+  }, [flush]);
+
+  return { handleEditorMount, flush };
+}

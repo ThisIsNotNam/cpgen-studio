@@ -1,23 +1,21 @@
-import { useState } from "react";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
 import PathPicker from "./PathPicker";
 import ParametersForm from "./ParametersForm";
 import VisualSchemaBuilder from "./schema/VisualSchemaBuilder";
+import type { GeneratorMode } from "../types";
 
-type Tab = "files" | "visual";
-
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: GeneratorMode; label: string }[] = [
   { id: "files", label: "Code Files" },
   { id: "visual", label: "Visual Builder" },
 ];
 
 export default function FilesPanel() {
-  const [activeTab, setActiveTab] = useState<Tab>("files");
-
   const {
     generatorPath,
     solutionPath,
     outputPath,
+    generatorMode,
+    setGeneratorMode,
     setGeneratorPath,
     setSolutionPath,
     setOutputPath,
@@ -60,11 +58,11 @@ export default function FilesPanel() {
             key={tab.id}
             type="button"
             className={`flex-1 flex items-center justify-center font-semibold transition-colors border-b-2 text-xs cursor-pointer ${
-              activeTab === tab.id
+              generatorMode === tab.id
                 ? "text-(--text-primary) border-(--accent) bg-(--bg-primary)"
                 : "text-(--text-muted) border-transparent hover:text-(--text-primary) hover:bg-(--bg-tertiary)"
             }`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setGeneratorMode(tab.id)}
           >
             {tab.label}
           </button>
@@ -72,7 +70,7 @@ export default function FilesPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {activeTab === "files" ? (
+        {generatorMode === "files" ? (
           <>
             <PathPicker
               label="Generator file"

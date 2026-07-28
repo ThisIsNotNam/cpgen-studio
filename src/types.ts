@@ -15,6 +15,8 @@ export interface WorkspaceFilePayload {
 
 export type WorkspaceSlot = "generator" | "solution";
 
+export type GeneratorMode = "files" | "visual";
+
 export type LogLevel = "info" | "success" | "warn" | "error" | "cmd" | "dim";
 
 export interface LogEntry {

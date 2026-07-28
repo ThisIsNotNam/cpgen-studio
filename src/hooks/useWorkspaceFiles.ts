@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { inferLanguage } from "../utils/language";
 import type {
+  GeneratorMode,
   LogLevel,
   WorkspaceFile,
   WorkspaceFilePayload,
@@ -54,6 +55,8 @@ export function useWorkspaceFiles(
   const [activeFileSlot, setActiveFileSlot] = useState<WorkspaceSlot | null>(
     savedState.activeFileSlot,
   );
+
+  const [generatorMode, setGeneratorMode] = useState<GeneratorMode>("files");
 
   useEffect(() => {
     const stateToSave: StoredWorkspaceState = {
@@ -120,12 +123,16 @@ export function useWorkspaceFiles(
   const setPath = (slot: WorkspaceSlot, path: string) =>
     slot === "generator" ? setGeneratorPath(path) : setSolutionPath(path);
 
-  const updateActiveFile = (update: (file: WorkspaceFile) => WorkspaceFile) => {
-    if (activeFileSlot === "generator") {
-      setGeneratorFile((prev) => (prev ? update(prev) : prev));
-    } else if (activeFileSlot === "solution") {
-      setSolutionFile((prev) => (prev ? update(prev) : prev));
-    }
+  const updateFileByPath = (
+    path: string,
+    update: (file: WorkspaceFile) => WorkspaceFile,
+  ) => {
+    setGeneratorFile((prev) =>
+      prev && prev.path === path ? update(prev) : prev,
+    );
+    setSolutionFile((prev) =>
+      prev && prev.path === path ? update(prev) : prev,
+    );
   };
 
   const setWorkspaceFile = (
@@ -184,25 +191,35 @@ export function useWorkspaceFiles(
     }
   };
 
-  const setIsDirty = (isDirty: boolean) =>
-    updateActiveFile((file) => ({ ...file, isDirty }));
+  const setIsDirty = (path: string, isDirty: boolean) =>
+    updateFileByPath(path, (file) => ({ ...file, isDirty }));
 
-  const handleCodeChange = (newValue: string | undefined) =>
-    updateActiveFile((file) => ({ ...file, value: newValue ?? "" }));
+  const handleCodeChange = (path: string, newValue: string) => {
+    setGeneratorFile((prev) =>
+      prev && prev.path === path ? { ...prev, value: newValue } : prev,
+    );
+    setSolutionFile((prev) =>
+      prev && prev.path === path ? { ...prev, value: newValue } : prev,
+    );
+  };
 
   const saveActiveFile = async (): Promise<boolean> => {
-    if (!activeFile) return false;
+    const fileToSave = activeFile;
+    if (!fileToSave) return false;
 
     try {
       await invoke("save_workspace_file", {
-        path: activeFile.path,
-        content: activeFile.value,
+        path: fileToSave.path,
+        content: fileToSave.value,
       });
-      updateActiveFile((file) => ({ ...file, isDirty: false }));
-      appendLog("info", `Saved ${activeFile.name}`);
+      updateFileByPath(fileToSave.path, (file) => ({
+        ...file,
+        isDirty: false,
+      }));
+      appendLog("info", `Saved ${fileToSave.name}`);
       return true;
     } catch (error) {
-      appendLog("error", `Failed to save ${activeFile.name}: ${String(error)}`);
+      appendLog("error", `Failed to save ${fileToSave.name}: ${String(error)}`);
       return false;
     }
   };
@@ -215,6 +232,8 @@ export function useWorkspaceFiles(
     outputPath,
     activeFileSlot,
     activeFile,
+    generatorMode,
+    setGeneratorMode,
     setGeneratorPath,
     setSolutionPath,
     setOutputPath,
