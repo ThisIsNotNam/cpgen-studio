@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ConfigState, LogLevel, WorkspaceFile } from "../types";
+import { useEffect, useRef, useState } from "react";
+import type {
+  ConfigState,
+  LogLevel,
+  SchemaNode,
+  WorkspaceFile,
+} from "../types";
 
 interface StatusPayload {
   step: string;
@@ -16,6 +21,7 @@ export function usePipelineRunner(
   appendLog: (level: LogLevel, message: string) => void,
 ) {
   const [isRunning, setIsRunning] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
@@ -83,5 +89,23 @@ export function usePipelineRunner(
     }
   };
 
-  return { isRunning, executePipeline };
+  const previewSchema = async (
+    schema: SchemaNode[],
+    seed?: number | null,
+  ): Promise<string | undefined> => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const result = await invoke<string>("preview_schema", {
+        schema,
+        seed: seed ?? null,
+      });
+      return result;
+    } catch (error) {
+      throw new Error(typeof error === "string" ? error : String(error));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  return { isGenerating, isRunning, executePipeline, previewSchema };
 }

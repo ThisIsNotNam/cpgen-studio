@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+import type { SchemaNode } from "../types";
 import { inferLanguage } from "../utils/language";
+
 import type {
   GeneratorMode,
   LogLevel,
@@ -10,6 +12,7 @@ import type {
 } from "../types";
 
 const STORAGE_KEY = "cpgen_workspace_state";
+const STORAGE_KEY_SCHEMA = "cpgen_schema_nodes";
 
 interface StoredWorkspaceState {
   generatorPath: string;
@@ -25,6 +28,35 @@ const buildWorkspaceFile = (payload: WorkspaceFilePayload): WorkspaceFile => ({
   value: payload.value,
   isDirty: false,
 });
+
+const DEFAULT_NODES: SchemaNode[] = [
+  {
+    id: crypto.randomUUID(),
+    kind: "int",
+    varName: "N",
+    min: "1",
+    max: "200",
+  },
+  {
+    id: crypto.randomUUID(),
+    kind: "loop",
+    count: "N",
+    children: [
+      {
+        id: crypto.randomUUID(),
+        kind: "array",
+        varName: "A",
+        length: "N",
+        separator: "space",
+        element: {
+          kind: "string",
+          length: "10",
+          charset: "alphanumeric",
+        },
+      },
+    ],
+  },
+];
 
 export function useWorkspaceFiles(
   appendLog: (level: LogLevel, message: string) => void,
@@ -57,6 +89,20 @@ export function useWorkspaceFiles(
   );
 
   const [generatorMode, setGeneratorMode] = useState<GeneratorMode>("files");
+
+  const [nodes, setNodes] = useState<SchemaNode[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SCHEMA);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Failed to parse saved schema nodes", e);
+    }
+    return DEFAULT_NODES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SCHEMA, JSON.stringify(nodes));
+  }, [nodes]);
 
   useEffect(() => {
     const stateToSave: StoredWorkspaceState = {
@@ -233,6 +279,8 @@ export function useWorkspaceFiles(
     activeFileSlot,
     activeFile,
     generatorMode,
+    nodes,
+    setNodes,
     setGeneratorMode,
     setGeneratorPath,
     setSolutionPath,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   DndContext,
   pointerWithin,
@@ -25,7 +25,7 @@ import {
 import NodeCard from "./NodeCard";
 import SchemaToolbar from "./SchemaToolbar";
 
-const STORAGE_KEY = "cpgen_schema_nodes";
+import { useWorkspaceContext } from "../../context/WorkspaceContext";
 
 function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
   if (list.some((n) => n.id === id)) return list;
@@ -38,48 +38,8 @@ function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
   return null;
 }
 
-const DEFAULT_NODES: SchemaNode[] = [
-  {
-    id: crypto.randomUUID(),
-    kind: "int",
-    varName: "N",
-    min: "1",
-    max: "200000",
-  },
-  {
-    id: crypto.randomUUID(),
-    kind: "loop",
-    count: "N",
-    children: [
-      {
-        id: crypto.randomUUID(),
-        kind: "array",
-        varName: "A",
-        length: "N",
-        separator: "space",
-        element: {
-          kind: "string",
-          length: "10",
-          charset: "alphanumeric",
-        },
-      },
-    ],
-  },
-];
-
 export default function VisualSchemaBuilder() {
-  const [nodes, setNodes] = useState<SchemaNode[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error("Failed to parse saved schema nodes", e);
-    }
-    return DEFAULT_NODES;
-  });
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes));
-  }, [nodes]);
+  const { nodes, setNodes } = useWorkspaceContext();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 

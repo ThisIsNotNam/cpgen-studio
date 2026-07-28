@@ -1,15 +1,4 @@
-export function generatePlaceholder(): string {
-  const lineCount = 3 + Math.floor(Math.random() * 4);
-  const lines: string[] = [];
-  for (let i = 0; i < lineCount; i++) {
-    const cols = 1 + Math.floor(Math.random() * 5);
-    const values = Array.from({ length: cols }, () =>
-      Math.floor(Math.random() * 1000),
-    );
-    lines.push(values.join(" "));
-  }
-  return lines.join("\n");
-}
+import { usePipelineContext } from "../../context/PipelineContext";
 
 interface SchemaPreviewPanelProps {
   example: string | null;
@@ -20,6 +9,8 @@ export default function SchemaPreviewPanel({
   example,
   onGenerate,
 }: SchemaPreviewPanelProps) {
+  const { isGenerating } = usePipelineContext();
+
   return (
     <div className="h-full min-h-0 flex flex-col bg-(--bg-primary)">
       <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-(--border)">
@@ -29,7 +20,8 @@ export default function SchemaPreviewPanel({
         <button
           type="button"
           onClick={onGenerate}
-          className="px-2.5 py-1 bg-(--accent) hover:bg-(--accent-hover) text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+          className="px-2.5 py-1 bg-(--accent) hover:bg-(--accent-hover) text-white rounded text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isGenerating}
         >
           Generate
         </button>

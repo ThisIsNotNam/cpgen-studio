@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { usePipelineRunner } from "../hooks/usePipelineRunner";
+import type { ConfigState, SchemaNode } from "../types";
 import { useConsoleLogsContext } from "./ConsoleLogsContext";
 import { useWorkspaceContext } from "./WorkspaceContext";
-import type { ConfigState } from "../types";
 
 const STORAGE_KEY = "cpgen_pipeline_config";
 
@@ -11,7 +11,12 @@ interface PipelineContextValue {
   config: ConfigState;
   onConfigChange: (key: keyof ConfigState, value: string | number) => void;
   isRunning: boolean;
+  isGenerating: boolean;
   executePipeline: () => void;
+  previewSchema: (
+    schema: SchemaNode[],
+    seed?: number | null,
+  ) => Promise<string | undefined>;
 }
 
 const PipelineContext = createContext<PipelineContextValue | null>(null);
@@ -41,19 +46,22 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
     setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  const { isRunning, executePipeline } = usePipelineRunner(
-    generatorFile,
-    solutionFile,
-    outputPath,
-    config,
-    appendLog,
-  );
+  const { isRunning, executePipeline, previewSchema, isGenerating } =
+    usePipelineRunner(
+      generatorFile,
+      solutionFile,
+      outputPath,
+      config,
+      appendLog,
+    );
 
   const value: PipelineContextValue = {
     config,
     onConfigChange,
     isRunning,
+    isGenerating,
     executePipeline,
+    previewSchema,
   };
 
   return (

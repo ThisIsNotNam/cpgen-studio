@@ -1,10 +1,10 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
+import { usePipelineContext } from "../context/PipelineContext";
 import { useMonacoEditor } from "../hooks/useMonacoEditor";
-import SchemaPreviewPanel, {
-  generatePlaceholder,
-} from "./schema/SchemaPreviewPanel";
+import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
+import SchemaPreviewPanel from "./schema/SchemaPreviewPanel";
 
 const EDITOR_OPTIONS = {
   fontSize: 13,
@@ -38,7 +38,11 @@ export default function EditorPanel() {
     saveActiveFile,
     setIsDirty,
     generatorMode,
+    nodes,
   } = useWorkspaceContext();
+
+  const { appendLog } = useConsoleLogsContext();
+  const { previewSchema } = usePipelineContext();
 
   const { handleEditorMount } = useMonacoEditor({
     activeFile,
@@ -115,7 +119,17 @@ export default function EditorPanel() {
             <div className="flex-1 min-h-0">
               <SchemaPreviewPanel
                 example={previewExample}
-                onGenerate={() => setPreviewExample(generatePlaceholder())}
+                onGenerate={async () => {
+                  try {
+                    const result = await previewSchema(nodes);
+                    if (result !== undefined) {
+                      setPreviewExample(result);
+                      appendLog("success", "Finished generating example");
+                    } else throw new Error("Undefined output");
+                  } catch (err) {
+                    appendLog("error", "Failed to generate preview: " + err);
+                  }
+                }}
               />
             </div>
           )}

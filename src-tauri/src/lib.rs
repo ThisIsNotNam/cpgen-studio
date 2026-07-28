@@ -1,4 +1,6 @@
+mod expr;
 mod runner;
+mod schema;
 use serde::Serialize;
 use std::{
     path::{Path, PathBuf},
@@ -55,7 +57,7 @@ async fn save_workspace_file(path: String, content: String) -> Result<(), String
         .map_err(|error| format!("failed to save {path}: {error}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn read_workspace_file(path: String) -> Result<WorkspaceFilePayload, String> {
     build_workspace_file(PathBuf::from(path))
 }
@@ -156,6 +158,68 @@ async fn generate_tests(
     Ok(())
 }
 
+#[tauri::command]
+async fn generate_tests_from_schema(
+    app: AppHandle,
+    schema: Vec<schema::SchemaNode>,
+    sol_path: PathBuf,
+    output_path: PathBuf,
+    test_name: String,
+    test_count: i32,
+    seed: Option<u64>,
+) -> Result<(), String> {
+    let send_status = |step: &str, message: &str| {
+        let _ = app.emit(
+            "test-status",
+            StatusPayload {
+                step: step.to_string(),
+                message: message.to_string(),
+            },
+        );
+    };
+
+    send_status("prep_executable", "Preparing run command for solution file");
+    let sol_command = prep_executable(&sol_path).await?;
+
+    for i in 1..=test_count {
+        send_status(
+            "generate_input",
+            format!("Generating test #{i} from schema").as_str(),
+        );
+        let test_seed = seed.map(|s| s.wrapping_add(i as u64));
+        let test = schema::generate(&schema, test_seed)
+            .map_err(|e| format!("Schema interpretation failed: {e}"))?;
+
+        send_status(
+            "run_executable",
+            format!("Running solution for test #{i}").as_str(),
+        );
+        let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
+
+        let test_path = output_path.join(format!("{test_name}{i}"));
+        fs::create_dir_all(&test_path)
+            .await
+            .map_err(|e| format!("Unable to create test output directory: {e}"))?;
+        fs::write(test_path.join(format!("{test_name}.inp")), &test)
+            .await
+            .map_err(|e| format!("Unable to write test: {e}"))?;
+        fs::write(test_path.join(format!("{test_name}.out")), result)
+            .await
+            .map_err(|e| format!("Unable to write result: {e}"))?;
+    }
+
+    send_status(
+        "finished",
+        format!("Finished generating {test_count} tests.").as_str(),
+    );
+    Ok(())
+}
+
+#[tauri::command(async)]
+fn preview_schema(schema: Vec<schema::SchemaNode>, seed: Option<u64>) -> Result<String, String> {
+    schema::generate(&schema, seed)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -168,6 +232,8 @@ pub fn run() {
             show_window,
             pick_directory,
             generate_tests,
+            generate_tests_from_schema,
+            preview_schema,
             save_workspace_file
         ])
         .setup(|app| {

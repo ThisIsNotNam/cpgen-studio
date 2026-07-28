@@ -1,13 +1,14 @@
-import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
+import { createContext, useContext } from "react";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
-import { useConsoleLogsContext } from "./ConsoleLogsContext";
 import type {
   GeneratorMode,
+  SchemaNode,
   WorkspaceFile,
   WorkspaceFilePayload,
   WorkspaceSlot,
 } from "../types";
+import { useConsoleLogsContext } from "./ConsoleLogsContext";
 
 interface WorkspaceFilesContextValue {
   generatorFile: WorkspaceFile | null;
@@ -18,6 +19,10 @@ interface WorkspaceFilesContextValue {
   activeFileSlot: WorkspaceSlot | null;
   activeFile: WorkspaceFile | null;
   generatorMode: GeneratorMode;
+  nodes: SchemaNode[];
+  setNodes: (
+    value: SchemaNode[] | ((prevState: SchemaNode[]) => SchemaNode[]),
+  ) => void;
   setGeneratorMode: (mode: GeneratorMode) => void;
   setGeneratorPath: (path: string) => void;
   setSolutionPath: (path: string) => void;

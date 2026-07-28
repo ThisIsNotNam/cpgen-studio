@@ -1,5 +1,5 @@
-import { useWorkspaceContext } from "../context/WorkspaceContext";
 import { usePipelineContext } from "../context/PipelineContext";
+import { useWorkspaceContext } from "../context/WorkspaceContext";
 
 export default function EditorToolbar() {
   const { activeFile } = useWorkspaceContext();
