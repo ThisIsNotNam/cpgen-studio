@@ -27,7 +27,7 @@ export default function SchemaPreviewPanel({
         <button
           type="button"
           onClick={onGenerate}
-          className="px-2.5 py-1 bg-(--accent) hover:bg-(--accent-hover) text-white rounded text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-2.5 py-1 bg-(--accent) hover:bg-(--accent-hover) text-white rounded text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
           disabled={isGenerating}
         >
           Generate

@@ -232,19 +232,28 @@ pub fn run() {
             save_workspace_file
         ])
         .setup(|app| {
+            let version = app.package_info().version.to_string();
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_title(&format!("CPGen Studio {}", version))?;
+            }
+
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(3));
-                if let Some(win) = handle.get_webview_window("main") {
-                    if !win.is_visible().unwrap_or(false) {
-                        let _ = win.show();
-                        handle
-                            .dialog()
-                            .message("The app took longer than expected to load.")
-                            .title("Startup warning")
-                            .blocking_show();
+                let handle = handle.clone();
+                let handle_inner = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    if let Some(win) = handle_inner.get_webview_window("main") {
+                        if !win.is_visible().unwrap_or(false) {
+                            let _ = win.show();
+                            handle_inner
+                                .dialog()
+                                .message("The app took longer than expected to load.")
+                                .title("Startup warning")
+                                .blocking_show();
+                        }
                     }
-                }
+                });
             });
             Ok(())
         })
