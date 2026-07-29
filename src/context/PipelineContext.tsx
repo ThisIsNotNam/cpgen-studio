@@ -23,7 +23,8 @@ const PipelineContext = createContext<PipelineContextValue | null>(null);
 
 export function PipelineProvider({ children }: { children: ReactNode }) {
   const { appendLog } = useConsoleLogsContext();
-  const { generatorFile, solutionFile, outputPath } = useWorkspaceContext();
+  const { generatorFile, solutionFile, outputPath, generatorMode, nodes } =
+    useWorkspaceContext();
 
   const [config, setConfig] = useState<ConfigState>(() => {
     try {
@@ -53,6 +54,8 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
       outputPath,
       config,
       appendLog,
+      generatorMode,
+      nodes,
     );
 
   const value: PipelineContextValue = {

@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import type {
   ConfigState,
+  GeneratorMode,
   LogLevel,
   SchemaNode,
   WorkspaceFile,
@@ -19,6 +20,8 @@ export function usePipelineRunner(
   outputPath: string | null,
   config: ConfigState,
   appendLog: (level: LogLevel, message: string) => void,
+  generatorMode: GeneratorMode,
+  nodes: SchemaNode[],
 ) {
   const [isRunning, setIsRunning] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,11 +38,18 @@ export function usePipelineRunner(
   const executePipeline = async () => {
     if (isRunning) return;
 
-    if (!generatorFile?.path || !solutionFile?.path || !outputPath) {
-      appendLog(
-        "warn",
-        "Generator file, solution file, and output path must all be selected.",
-      );
+    const usingSchema = generatorMode === "visual";
+
+    if (usingSchema && nodes.length === 0) {
+      appendLog("warn", "Add at least one schema node before generating.");
+      return;
+    }
+    if (!usingSchema && !generatorFile?.path) {
+      appendLog("warn", "Generator file must be selected.");
+      return;
+    }
+    if (!solutionFile?.path || !outputPath) {
+      appendLog("warn", "Solution file and output path must be selected.");
       return;
     }
 
@@ -68,14 +78,25 @@ export function usePipelineRunner(
         },
       );
 
-      await invoke("generate_tests", {
-        genPath: generatorFile.path,
-        solPath: solutionFile.path,
-        outputPath: outputPath,
-        testName: "test",
-        testCount: config.batches,
-        indexAsArg: config.indexDelivery === "argv[1]",
-      });
+      if (usingSchema) {
+        await invoke("generate_tests_from_schema", {
+          schema: nodes,
+          solPath: solutionFile.path,
+          outputPath: outputPath,
+          testName: "test",
+          testCount: config.batches,
+          seed: null,
+        });
+      } else {
+        await invoke("generate_tests", {
+          genPath: generatorFile!.path,
+          solPath: solutionFile.path,
+          outputPath: outputPath,
+          testName: "test",
+          testCount: config.batches,
+          indexAsArg: config.indexDelivery === "argv[1]",
+        });
+      }
 
       appendLog("success", "All tests generated and saved successfully!");
     } catch (err) {

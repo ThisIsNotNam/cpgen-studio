@@ -2,7 +2,7 @@ import { usePipelineContext } from "../context/PipelineContext";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
 
 export default function EditorToolbar() {
-  const { activeFile } = useWorkspaceContext();
+  const { activeFile, generatorMode } = useWorkspaceContext();
   const { isRunning, executePipeline } = usePipelineContext();
   const activeFileName = activeFile?.name ?? "No file selected";
 
@@ -10,7 +10,7 @@ export default function EditorToolbar() {
     <div className="h-10.5 shrink-0 bg-(--bg-secondary) border-b border-(--border) flex items-center gap-2 px-3.5">
       <div className="flex items-center gap-1.5 text-[13px] text-(--text-muted) min-w-0">
         <span className="text-(--text-secondary) whitespace-nowrap">
-          contest
+          Workspace
         </span>
         <svg
           width="14"
@@ -23,7 +23,7 @@ export default function EditorToolbar() {
           <path d="m9 18 6-6-6-6" />
         </svg>
         <span className="text-(--text-secondary) whitespace-nowrap">
-          {activeFileName}
+          {generatorMode != "visual" ? activeFileName : "Visual builder"}
         </span>
       </div>
       <div className="flex-1" />

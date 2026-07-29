@@ -1,9 +1,9 @@
-import { useState } from "react";
 import Editor from "@monaco-editor/react";
-import { useWorkspaceContext } from "../context/WorkspaceContext";
-import { usePipelineContext } from "../context/PipelineContext";
-import { useMonacoEditor } from "../hooks/useMonacoEditor";
+import { useState } from "react";
 import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
+import { usePipelineContext } from "../context/PipelineContext";
+import { useWorkspaceContext } from "../context/WorkspaceContext";
+import { useMonacoEditor } from "../hooks/useMonacoEditor";
 import SchemaPreviewPanel from "./schema/SchemaPreviewPanel";
 
 const EDITOR_OPTIONS = {

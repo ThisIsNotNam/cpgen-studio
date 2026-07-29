@@ -1,8 +1,19 @@
+import { useEffect, useRef } from "react";
 import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
 import ConsoleLogLine from "./ConsoleLogLine";
 
 export default function ConsoleLogs() {
   const { logs, clearLogs } = useConsoleLogsContext();
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [logs]);
 
   return (
     <section
@@ -20,6 +31,7 @@ export default function ConsoleLogs() {
         </button>
       </div>
       <div
+        ref={scrollRef}
         className="flex-1 min-h-0 overflow-auto px-3.5 py-2.5 font-(--font-mono) text-[13px] leading-[1.7] text-(--text-secondary)"
         id="terminal"
       >

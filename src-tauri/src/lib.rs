@@ -189,11 +189,6 @@ async fn generate_tests_from_schema(
         let test_seed = seed.map(|s| s.wrapping_add(i as u64));
         let test = schema::generate(&schema, test_seed)
             .map_err(|e| format!("Schema interpretation failed: {e}"))?;
-
-        send_status(
-            "run_executable",
-            format!("Running solution for test #{i}").as_str(),
-        );
         let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
 
         let test_path = output_path.join(format!("{test_name}{i}"));
