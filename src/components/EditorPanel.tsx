@@ -95,10 +95,7 @@ export default function EditorPanel() {
 
       <div className="flex-1 min-h-0 overflow-auto flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col">
-          {/* Mounted whenever a file backs the current slot, in EITHER mode.
-              Only ever hidden via CSS, never unmounted — switching generatorMode
-              must never re-trigger onMount, re-create a model, or touch undo
-              history. See useMonacoEditor.ts for why that guarantee matters. */}
+          {/* Does not get unmounted on mode change */}
           {activeFile && (
             <div
               className={`min-h-0 ${showSchemaPreview ? "hidden" : "flex-1"}`}

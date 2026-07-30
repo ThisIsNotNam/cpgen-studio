@@ -92,7 +92,7 @@ fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
 fn show_window(window: tauri::Window) {
     let win = window
         .get_webview_window("main")
-        .expect("main window not found — check window label in tauri.conf.json");
+        .expect("main window not found");
     win.show().expect("failed to show main window");
 }
 
