@@ -1,25 +1,26 @@
-import { useState, useCallback } from "react";
 import {
   DndContext,
-  pointerWithin,
+  DragStartEvent,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
-  type DragEndEvent,
   type CollisionDetection,
+  type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useCallback, useState } from "react";
 
-import type { SchemaNode, FieldKind } from "../../types";
+import type { FieldKind, SchemaNode } from "../../types";
 import {
   findNodeRecursive,
-  removeNodeRecursive,
-  updateNodeRecursive,
-  updateLoopChildren,
   moveNodeInTree,
+  removeNodeRecursive,
+  updateLoopChildren,
+  updateNodeRecursive,
 } from "../../utils/schemaTree";
 
 import NodeCard from "./NodeCard";
@@ -47,15 +48,22 @@ export default function VisualSchemaBuilder() {
     useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
   );
 
+  const [activeParentIds, setActiveParentIds] = useState<Set<string> | null>(
+    null,
+  );
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    const parent = findParentList(nodes, String(active.id));
+    setActiveParentIds(parent ? new Set(parent.map((n) => n.id)) : null);
+  };
+
   const sameContainerCollision: CollisionDetection = useCallback(
     (args) => {
       const collisions = pointerWithin(args);
-      const activeParent = findParentList(nodes, String(args.active.id));
-      if (!collisions.length || !activeParent) return collisions;
-      const siblingIds = new Set(activeParent.map((n) => n.id));
-      return collisions.filter((c) => siblingIds.has(String(c.id)));
+      if (!collisions.length || !activeParentIds) return collisions;
+      return collisions.filter((c) => activeParentIds.has(String(c.id)));
     },
-    [nodes],
+    [activeParentIds],
   );
 
   const selectedNode = findNodeRecursive(nodes, selectedId || "");
@@ -123,6 +131,7 @@ export default function VisualSchemaBuilder() {
       <DndContext
         sensors={sensors}
         collisionDetection={sameContainerCollision}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
