@@ -13,7 +13,14 @@ pub fn clean_path(path: &Path) -> String {
 
 pub async fn prep_executable(source: &Path) -> Result<(String, Vec<String>), String> {
     match source.extension().and_then(|s| s.to_str()) {
-        Some("py") => Ok(("python".to_string(), vec![clean_path(source)])),
+        Some("py") => {
+            let python = if cfg!(target_os = "windows") {
+                "python"
+            } else {
+                "python3"
+            };
+            Ok((python.to_string(), vec![clean_path(source)]))
+        }
         Some("cpp") => {
             let parent = source
                 .parent()
