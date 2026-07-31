@@ -9,9 +9,7 @@ interface ConsoleLogsContextValue {
   clearLogs: () => void;
 }
 
-const ConsoleLogsContext = createContext<ConsoleLogsContextValue | null>(
-  null,
-);
+const ConsoleLogsContext = createContext<ConsoleLogsContextValue | null>(null);
 
 export function ConsoleLogsProvider({ children }: { children: ReactNode }) {
   const value = useConsoleLogs();

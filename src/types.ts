@@ -78,8 +78,4 @@ export interface LoopNode extends BaseNode {
 }
 
 export type SchemaNode =
-  | IntNode
-  | FloatNode
-  | StringNode
-  | ArrayNode
-  | LoopNode;
+  IntNode | FloatNode | StringNode | ArrayNode | LoopNode;
