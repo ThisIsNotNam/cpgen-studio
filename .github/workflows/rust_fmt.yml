@@ -20,4 +20,5 @@ jobs:
           components: rustfmt
 
       - name: Run cargo fmt --check
+        working-directory: src-tauri
         run: cargo fmt --check
