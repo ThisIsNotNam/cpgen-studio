@@ -1,6 +1,6 @@
-import { useRef, useEffect, useCallback } from "react";
 import type { OnMount } from "@monaco-editor/react";
 import type { editor, IDisposable } from "monaco-editor";
+import { useCallback, useEffect, useRef } from "react";
 import type { WorkspaceFile } from "../types";
 
 type TrackedModel = editor.ITextModel & {
@@ -15,6 +15,14 @@ interface UseMonacoEditorOptions {
   debounceMs?: number;
 }
 
+function useLatest<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
 export function useMonacoEditor({
   activeFile,
   handleCodeChange,
@@ -22,18 +30,22 @@ export function useMonacoEditor({
   setIsDirty,
   debounceMs = 300,
 }: UseMonacoEditorOptions) {
-  const handleCodeChangeRef = useRef(handleCodeChange);
-  handleCodeChangeRef.current = handleCodeChange;
-
-  const saveRef = useRef(saveActiveFile);
-  saveRef.current = saveActiveFile;
-
-  const setIsDirtyRef = useRef(setIsDirty);
-  setIsDirtyRef.current = setIsDirty;
-
-  const activeFileRef = useRef(activeFile);
-  activeFileRef.current = activeFile;
-
+  const handleCodeChangeRef = useLatest(handleCodeChange);
+  useEffect(() => {
+    handleCodeChangeRef.current = handleCodeChange;
+  });
+  const saveRef = useLatest(saveActiveFile);
+  useEffect(() => {
+    saveRef.current = saveActiveFile;
+  });
+  const setIsDirtyRef = useLatest(setIsDirty);
+  useEffect(() => {
+    setIsDirtyRef.current = setIsDirty;
+  });
+  const activeFileRef = useLatest(activeFile);
+  useEffect(() => {
+    activeFileRef.current = activeFile;
+  });
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const modelRef = useRef<TrackedModel | null>(null);
   // Path the *currently bound* model corresponds to (not necessarily activeFile.path,
@@ -71,7 +83,7 @@ export function useMonacoEditor({
     const value = modelRef.current.getValue();
     lastSentValueRef.current = value;
     handleCodeChangeRef.current(boundPathRef.current, value);
-  }, []);
+  }, [handleCodeChangeRef]);
 
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
     editorRef.current = editorInstance;
@@ -175,13 +187,17 @@ export function useMonacoEditor({
   }, [activeFile?.path, flush]);
 
   useEffect(() => {
-    if (!modelRef.current || !activeFile) return;
-    if (boundPathRef.current !== activeFile.path) return;
+    const path = activeFile?.path;
+    const value = activeFile?.value;
+    const isDirty = activeFile?.isDirty;
+
+    if (!modelRef.current || path === undefined) return;
+    if (boundPathRef.current !== path) return;
 
     // Cheap in practice: when this update originated from our own flush(),
-    // activeFile.value is the exact same string reference we sent, so this
+    // value is the exact same string reference we sent, so this
     // is a pointer check, not a character-by-character scan.
-    if (activeFile.value === lastSentValueRef.current) return;
+    if (value === lastSentValueRef.current) return;
 
     const model = modelRef.current;
     if (model.isDisposed()) return;
@@ -194,19 +210,19 @@ export function useMonacoEditor({
 
     isProgrammaticUpdateRef.current = true;
     try {
-      model.setValue(activeFile.value);
+      model.setValue(value ?? "");
     } finally {
       isProgrammaticUpdateRef.current = false;
     }
 
-    if (!activeFile.isDirty) {
+    if (!isDirty) {
       model._savedVersionId = model.getAlternativeVersionId();
       prevIsDirtyRef.current = false;
-      setIsDirtyRef.current(activeFile.path, false);
+      setIsDirtyRef.current(path, false);
     }
 
-    lastSentValueRef.current = activeFile.value;
-  }, [activeFile?.value, activeFile?.isDirty, activeFile?.path]);
+    lastSentValueRef.current = value ?? null;
+  }, [activeFile?.value, activeFile?.isDirty, activeFile?.path, setIsDirtyRef]);
 
   // Flush on complete unmount.
   useEffect(() => {

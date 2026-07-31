@@ -152,7 +152,7 @@ export function useWorkspaceFiles(
     };
 
     restoreFiles();
-  }, []);
+  }, [savedState.generatorPath, savedState.solutionPath, appendLog]);
 
   const activeFile =
     activeFileSlot === "generator"

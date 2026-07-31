@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { LogEntry, LogLevel } from "../types";
 
 const INITIAL_LOGS: LogEntry[] = [
@@ -14,15 +14,15 @@ const INITIAL_LOGS: LogEntry[] = [
 export function useConsoleLogs() {
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
 
-  const appendLog = (level: LogLevel, message: string) => {
+  const appendLog = useCallback((level: LogLevel, message: string) => {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });
     setLogs((prev) => [
       ...prev,
       { id: Date.now() + prev.length, time, level, message },
     ]);
-  };
+  }, []);
 
-  const clearLogs = () => setLogs([]);
+  const clearLogs = useCallback(() => setLogs([]), []);
 
   return { logs, appendLog, clearLogs };
 }
