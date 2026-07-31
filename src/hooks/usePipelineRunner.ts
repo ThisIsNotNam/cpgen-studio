@@ -83,7 +83,7 @@ export function usePipelineRunner(
           schema: nodes,
           solPath: solutionFile.path,
           outputPath: outputPath,
-          testName: "test",
+          testName: config.problemName,
           testCount: config.batches,
           seed: null,
         });
@@ -92,7 +92,7 @@ export function usePipelineRunner(
           genPath: generatorFile!.path,
           solPath: solutionFile.path,
           outputPath: outputPath,
-          testName: "test",
+          testName: config.problemName,
           testCount: config.batches,
           indexAsArg: config.indexDelivery === "argv[1]",
         });
