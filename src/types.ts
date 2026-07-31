@@ -28,6 +28,7 @@ export interface LogEntry {
 
 export interface ConfigState {
   batches: number;
+  problemName: string;
   indexDelivery: "argv[1]" | "stdin";
 }
 

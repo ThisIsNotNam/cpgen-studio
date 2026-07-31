@@ -62,7 +62,7 @@ fn read_workspace_file(path: String) -> Result<WorkspaceFilePayload, String> {
     build_workspace_file(PathBuf::from(path))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn pick_workspace_file(app: tauri::AppHandle) -> Result<Option<WorkspaceFilePayload>, String> {
     match app.dialog().file().blocking_pick_file() {
         Some(file_path) => {
@@ -75,7 +75,7 @@ fn pick_workspace_file(app: tauri::AppHandle) -> Result<Option<WorkspaceFilePayl
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
     match app.dialog().file().blocking_pick_folder() {
         Some(file_path) => {

@@ -1,10 +1,11 @@
 import { usePipelineContext } from "../context/PipelineContext";
+import { useWorkspaceContext } from "../context/WorkspaceContext";
 import Section from "./Section";
 
 const ROW_CLASS = "flex items-center gap-3 mb-3";
 const LABEL_CLASS =
-  "w-[74px] text-right text-[13px] text-(--text-secondary) shrink-0";
-const NUMBER_INPUT_CLASS =
+  "w-[85px] text-[13px] text-(--text-secondary) shrink-0 text-right";
+const INPUT_CLASS =
   "w-full h-8 px-2.5 bg-(--bg-input) border border-(--border) rounded text-(--text-primary) text-[13px] outline-none focus:border-(--accent) focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]";
 
 function IndexOption({
@@ -43,6 +44,7 @@ function IndexOption({
 }
 export default function ParametersForm() {
   const { config, onConfigChange } = usePipelineContext();
+  const { generatorMode } = useWorkspaceContext();
 
   return (
     <Section title="Parameters">
@@ -51,7 +53,7 @@ export default function ParametersForm() {
         <div className="flex-1 min-w-0">
           <input
             type="number"
-            className={NUMBER_INPUT_CLASS}
+            className={INPUT_CLASS}
             value={config.batches}
             min={1}
             max={100}
@@ -63,6 +65,20 @@ export default function ParametersForm() {
       </div>
 
       <div className={ROW_CLASS}>
+        <label className={LABEL_CLASS}>Problem name</label>
+        <div className="flex-1 min-w-0">
+          <input
+            type="text"
+            className={INPUT_CLASS}
+            value={config.problemName}
+            onChange={(event) =>
+              onConfigChange("problemName", event.target.value)
+            }
+          />
+        </div>
+      </div>
+
+      <div className={ROW_CLASS} hidden={generatorMode == "visual"}>
         <label className={LABEL_CLASS}>Index</label>
         <div className="flex-1 min-w-0 flex gap-0.5 bg-(--bg-input) border border-(--border) rounded-md p-0.5">
           <IndexOption

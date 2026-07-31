@@ -45,7 +45,7 @@ export default function SchemaToolbar({
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-1.5">
         {ADDABLE_KINDS.map(({ kind, label }) => (
           <button
             key={kind}
