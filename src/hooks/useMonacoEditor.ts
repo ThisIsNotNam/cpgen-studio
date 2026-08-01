@@ -1,6 +1,6 @@
 import type { OnMount } from "@monaco-editor/react";
 import type { editor, IDisposable } from "monaco-editor";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useInsertionEffect, useRef } from "react";
 import type { WorkspaceFile } from "../types";
 
 type TrackedModel = editor.ITextModel & {
@@ -17,7 +17,8 @@ interface UseMonacoEditorOptions {
 
 function useLatest<T>(value: T) {
   const ref = useRef(value);
-  useEffect(() => {
+  // useInsertionEffect over useEffect to ensure all ref are updated before any inner function runs.
+  useInsertionEffect(() => {
     ref.current = value;
   });
   return ref;
@@ -31,21 +32,9 @@ export function useMonacoEditor({
   debounceMs = 300,
 }: UseMonacoEditorOptions) {
   const handleCodeChangeRef = useLatest(handleCodeChange);
-  useEffect(() => {
-    handleCodeChangeRef.current = handleCodeChange;
-  });
   const saveRef = useLatest(saveActiveFile);
-  useEffect(() => {
-    saveRef.current = saveActiveFile;
-  });
   const setIsDirtyRef = useLatest(setIsDirty);
-  useEffect(() => {
-    setIsDirtyRef.current = setIsDirty;
-  });
   const activeFileRef = useLatest(activeFile);
-  useEffect(() => {
-    activeFileRef.current = activeFile;
-  });
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const modelRef = useRef<TrackedModel | null>(null);
   // Path the *currently bound* model corresponds to (not necessarily activeFile.path,
@@ -84,6 +73,33 @@ export function useMonacoEditor({
     lastSentValueRef.current = value;
     handleCodeChangeRef.current(boundPathRef.current, value);
   }, [handleCodeChangeRef]);
+
+  const performSave = useCallback(async (): Promise<boolean> => {
+    flush();
+    const currentModel = modelRef.current;
+    const savePath = boundPathRef.current;
+    if (!currentModel || currentModel.isDisposed() || !savePath) return false;
+
+    const versionAtSave = currentModel.getAlternativeVersionId();
+
+    try {
+      const success = await saveRef.current();
+      if (success && !currentModel.isDisposed()) {
+        currentModel._savedVersionId = versionAtSave;
+        const isStillDirty =
+          currentModel.getAlternativeVersionId() !==
+          currentModel._savedVersionId;
+        if (boundPathRef.current === savePath) {
+          prevIsDirtyRef.current = isStillDirty;
+        }
+        setIsDirtyRef.current(savePath, isStillDirty);
+      }
+      return success;
+    } catch (err) {
+      console.error("Failed to save active file:", err);
+      return false;
+    }
+  }, [flush, saveRef, setIsDirtyRef]);
 
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
     editorRef.current = editorInstance;
@@ -143,28 +159,7 @@ export function useMonacoEditor({
     editorInstance.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       async () => {
-        flush();
-        const currentModel = modelRef.current;
-        const savePath = boundPathRef.current;
-        if (!currentModel || currentModel.isDisposed() || !savePath) return;
-
-        const versionAtSave = currentModel.getAlternativeVersionId();
-
-        try {
-          const success = await saveRef.current();
-          if (success && !currentModel.isDisposed()) {
-            currentModel._savedVersionId = versionAtSave;
-            const isStillDirty =
-              currentModel.getAlternativeVersionId() !==
-              currentModel._savedVersionId;
-            if (boundPathRef.current === savePath) {
-              prevIsDirtyRef.current = isStillDirty;
-            }
-            setIsDirtyRef.current(savePath, isStillDirty);
-          }
-        } catch (err) {
-          console.error("Failed to save active file:", err);
-        }
+        await performSave();
       },
     );
 
@@ -231,5 +226,5 @@ export function useMonacoEditor({
     };
   }, [flush]);
 
-  return { handleEditorMount, flush };
+  return { handleEditorMount, flush, performSave };
 }
