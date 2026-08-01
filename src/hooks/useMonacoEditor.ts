@@ -35,7 +35,6 @@ export function useMonacoEditor({
   const saveRef = useLatest(saveActiveFile);
   const setIsDirtyRef = useLatest(setIsDirty);
   const activeFileRef = useLatest(activeFile);
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const modelRef = useRef<TrackedModel | null>(null);
   // Path the *currently bound* model corresponds to (not necessarily activeFile.path,
   // which may already have moved on by the time an async flush runs).
@@ -102,8 +101,6 @@ export function useMonacoEditor({
   }, [flush, saveRef, setIsDirtyRef]);
 
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
-    editorRef.current = editorInstance;
-
     const bindModel = (model: TrackedModel | null) => {
       // Flush whatever was pending on the *previous* model before losing the ref to it.
       flush();
@@ -168,7 +165,6 @@ export function useMonacoEditor({
       contentSubRef.current = null;
       modelChangeSubRef.current?.dispose();
       modelChangeSubRef.current = null;
-      editorRef.current = null;
       modelRef.current = null;
       boundPathRef.current = null;
     });
