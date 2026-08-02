@@ -11,6 +11,78 @@ describe("useWorkspaceFiles", () => {
     localStorage.clear();
   });
 
+  describe("setWorkspaceFile(slot, null)", () => {
+    it("clears activeFileSlot when nulling the currently active file", async () => {
+      const appendLog = vi.fn();
+      mockedInvoke
+        .mockResolvedValueOnce({
+          path: "/tmp/gen.cpp",
+          name: "gen.cpp",
+          language: "cpp",
+          value: "generator code",
+        })
+        .mockResolvedValueOnce({
+          path: "/tmp/sol.cpp",
+          name: "sol.cpp",
+          language: "cpp",
+          value: "solution code",
+        });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+        await result.current.loadWorkspaceFile("solution", "/tmp/sol.cpp");
+      });
+
+      expect(result.current.activeFileSlot).toBe("solution");
+
+      act(() => {
+        result.current.setWorkspaceFile("solution", null);
+      });
+
+      expect(result.current.solutionFile).toBeNull();
+      expect(result.current.solutionPath).toBe("");
+      expect(result.current.activeFileSlot).toBeNull();
+      expect(result.current.generatorFile).not.toBeNull();
+    });
+
+    it("leaves activeFileSlot untouched when nulling a different, inactive slot", async () => {
+      const appendLog = vi.fn();
+      mockedInvoke
+        .mockResolvedValueOnce({
+          path: "/tmp/gen.cpp",
+          name: "gen.cpp",
+          language: "cpp",
+          value: "generator code",
+        })
+        .mockResolvedValueOnce({
+          path: "/tmp/sol.cpp",
+          name: "sol.cpp",
+          language: "cpp",
+          value: "solution code",
+        });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+        await result.current.loadWorkspaceFile("solution", "/tmp/sol.cpp");
+      });
+
+      expect(result.current.activeFileSlot).toBe("solution");
+
+      act(() => {
+        result.current.setWorkspaceFile("generator", null);
+      });
+
+      expect(result.current.generatorFile).toBeNull();
+      expect(result.current.generatorPath).toBe("");
+      expect(result.current.activeFileSlot).toBe("solution");
+      expect(result.current.solutionFile).not.toBeNull();
+    });
+  });
+
   describe("loadWorkspaceFile", () => {
     it("calls read_workspace_file with the given path and stores the result", async () => {
       const appendLog = vi.fn();

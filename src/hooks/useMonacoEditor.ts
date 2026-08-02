@@ -50,7 +50,7 @@ export function useMonacoEditor({
   const isProgrammaticUpdateRef = useRef(false);
 
   const lastSentValueRef = useRef<string | null>(activeFile?.value ?? null);
-  const prevIsDirtyRef = useRef<boolean | null>(null);
+  const lastReportedIsDirtyRef = useRef<boolean | null>(null);
 
   const flush = useCallback(() => {
     if (timerRef.current) {
@@ -89,7 +89,7 @@ export function useMonacoEditor({
           currentModel.getAlternativeVersionId() !==
           currentModel._savedVersionId;
         if (boundPathRef.current === savePath) {
-          prevIsDirtyRef.current = isStillDirty;
+          lastReportedIsDirtyRef.current = isStillDirty;
         }
         setIsDirtyRef.current(savePath, isStillDirty);
       }
@@ -126,7 +126,7 @@ export function useMonacoEditor({
       const isDirty =
         model._savedVersionId !== undefined &&
         model.getAlternativeVersionId() !== model._savedVersionId;
-      prevIsDirtyRef.current = isDirty;
+      lastReportedIsDirtyRef.current = isDirty;
       if (boundPathRef.current) {
         setIsDirtyRef.current(boundPathRef.current, isDirty);
       }
@@ -135,8 +135,8 @@ export function useMonacoEditor({
         if (isProgrammaticUpdateRef.current) return;
 
         const dirty = model.getAlternativeVersionId() !== model._savedVersionId;
-        if (dirty !== prevIsDirtyRef.current) {
-          prevIsDirtyRef.current = dirty;
+        if (dirty !== lastReportedIsDirtyRef.current) {
+          lastReportedIsDirtyRef.current = dirty;
           if (boundPathRef.current)
             setIsDirtyRef.current(boundPathRef.current, dirty);
         }
@@ -208,7 +208,7 @@ export function useMonacoEditor({
 
     if (!isDirty) {
       model._savedVersionId = model.getAlternativeVersionId();
-      prevIsDirtyRef.current = false;
+      lastReportedIsDirtyRef.current = false;
       setIsDirtyRef.current(path, false);
     }
 
