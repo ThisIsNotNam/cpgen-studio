@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  ts-checks:
+  ts-lint:
     name: ESLint & Prettier
     runs-on: ubuntu-latest
     steps:
@@ -15,7 +15,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - run: npm ci
@@ -25,3 +25,19 @@ jobs:
 
       - name: Prettier
         run: npm run format:check
+
+  ts-unit-test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:run
