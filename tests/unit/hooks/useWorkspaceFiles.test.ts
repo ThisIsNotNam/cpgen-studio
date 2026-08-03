@@ -280,4 +280,40 @@ describe("useWorkspaceFiles", () => {
       expect(result.current.generatorFile?.value).toBe("unchanged");
     });
   });
+
+  describe("schema node state", () => {
+    it("initializes schema nodes from the default state and persists updates", () => {
+      const appendLog = vi.fn();
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      expect(result.current.nodes).toHaveLength(2);
+      expect(result.current.nodes[0]).toMatchObject({ kind: "int" });
+
+      act(() => {
+        result.current.setNodes([
+          {
+            id: "custom",
+            kind: "loop",
+            count: "T",
+            children: [
+              {
+                id: "child",
+                kind: "string",
+                varName: "s",
+                length: "5",
+                charset: "lowercase",
+              },
+            ],
+          },
+        ]);
+      });
+
+      expect(result.current.nodes).toHaveLength(1);
+      expect(result.current.nodes[0]).toMatchObject({
+        kind: "loop",
+        count: "T",
+      });
+      expect(localStorage.getItem("cpgen_schema_nodes")).toContain("child");
+    });
+  });
 });
