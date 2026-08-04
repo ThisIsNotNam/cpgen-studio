@@ -24,7 +24,9 @@ export function usePipelineRunner(
   nodes: SchemaNode[],
 ) {
   const [isRunning, setIsRunning] = useState(false);
+  const isRunningRef = useRef(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function usePipelineRunner(
   }, []);
 
   const executePipeline = async () => {
-    if (isRunning) return;
+    if (isRunningRef.current) return;
 
     const usingSchema = generatorMode === "visual";
 
@@ -53,6 +55,7 @@ export function usePipelineRunner(
       return;
     }
 
+    isRunningRef.current = true;
     setIsRunning(true);
     appendLog("info", "Starting test generation pipeline...");
 
@@ -107,6 +110,7 @@ export function usePipelineRunner(
         unlistenRef.current = null;
       }
       setIsRunning(false);
+      isRunningRef.current = false;
     }
   };
 
@@ -114,7 +118,8 @@ export function usePipelineRunner(
     schema: SchemaNode[],
     seed?: number | null,
   ): Promise<string | undefined> => {
-    if (isGenerating) return;
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     setIsGenerating(true);
     try {
       const result = await invoke<string>("preview_schema", {
@@ -126,6 +131,7 @@ export function usePipelineRunner(
       throw new Error(typeof error === "string" ? error : String(error));
     } finally {
       setIsGenerating(false);
+      isGeneratingRef.current = false;
     }
   };
   return { isGenerating, isRunning, executePipeline, previewSchema };

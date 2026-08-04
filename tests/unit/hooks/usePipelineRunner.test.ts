@@ -10,13 +10,9 @@ import type {
   WorkspaceFile,
 } from "../../../src/types";
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(),
-}));
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 describe("usePipelineRunner", () => {
   beforeEach(() => {
@@ -102,5 +98,50 @@ describe("usePipelineRunner", () => {
       schema: expect.any(Array),
       seed: null,
     });
+  });
+});
+
+describe("concurrent invocation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("only starts one backend run when executePipeline fires twice before the first state update commits", async () => {
+    const appendLog = vi.fn();
+    const mockedInvoke = vi.mocked(invoke);
+    const mockedListen = vi.mocked(listen);
+    mockedListen.mockResolvedValue(vi.fn());
+    mockedInvoke.mockResolvedValue(undefined);
+
+    const nodes: SchemaNode[] = [
+      { id: "n", kind: "int", varName: "n", min: "1", max: "10" },
+    ];
+
+    const { result } = renderHook(() =>
+      usePipelineRunner(
+        null,
+        { path: "/tmp/sol.cpp" } as WorkspaceFile,
+        "/tmp/out",
+        {
+          batches: 3,
+          problemName: "demo",
+          indexDelivery: "stdin",
+        } as ConfigState,
+        appendLog,
+        "visual",
+        nodes,
+      ),
+    );
+
+    await act(async () => {
+      const first = result.current.executePipeline();
+      const second = result.current.executePipeline();
+      await Promise.all([first, second]);
+    });
+
+    const backendCalls = mockedInvoke.mock.calls.filter(
+      ([command]) => command === "generate_tests_from_schema",
+    );
+    expect(backendCalls).toHaveLength(1);
   });
 });

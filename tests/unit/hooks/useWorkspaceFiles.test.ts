@@ -2,8 +2,19 @@ import { invoke } from "@tauri-apps/api/core";
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceFiles } from "../../../src/hooks/useWorkspaceFiles";
+import type { WorkspaceFilePayload } from "../../../src/types";
 
 const mockedInvoke = vi.mocked(invoke);
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 describe("useWorkspaceFiles", () => {
   beforeEach(() => {
@@ -315,5 +326,120 @@ describe("useWorkspaceFiles", () => {
       });
       expect(localStorage.getItem("cpgen_schema_nodes")).toContain("child");
     });
+  });
+});
+
+describe("out-of-order responses", () => {
+  beforeEach(() => {
+    mockedInvoke.mockReset();
+    localStorage.clear();
+  });
+
+  it("shows the file that was opened last, even if it was requested first", async () => {
+    const appendLog = vi.fn();
+    const slowRequest = deferred<WorkspaceFilePayload>();
+    const fastRequest = deferred<WorkspaceFilePayload>();
+
+    mockedInvoke
+      .mockImplementationOnce(() => slowRequest.promise)
+      .mockImplementationOnce(() => fastRequest.promise);
+
+    const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "/a.cpp");
+    });
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "/b.cpp");
+    });
+
+    // b resolves first
+    await act(async () => {
+      fastRequest.resolve({
+        path: "/b.cpp",
+        name: "b.cpp",
+        language: "cpp",
+        value: "content of b",
+      });
+    });
+    // a resolves later
+    await act(async () => {
+      slowRequest.resolve({
+        path: "/a.cpp",
+        name: "a.cpp",
+        language: "cpp",
+        value: "content of a",
+      });
+    });
+
+    expect(result.current.generatorFile?.path).toBe("/b.cpp");
+    expect(result.current.generatorFile?.value).toBe("content of b");
+  });
+
+  it("does not log an error for a superseded request that fails after the user moved on", async () => {
+    const appendLog = vi.fn();
+    const staleRequest = deferred<WorkspaceFilePayload>();
+    const freshRequest = deferred<WorkspaceFilePayload>();
+
+    mockedInvoke
+      .mockImplementationOnce(() => staleRequest.promise)
+      .mockImplementationOnce(() => freshRequest.promise);
+
+    const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "/a.cpp");
+    });
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "/b.cpp");
+    });
+
+    await act(async () => {
+      freshRequest.resolve({
+        path: "/b.cpp",
+        name: "b.cpp",
+        language: "cpp",
+        value: "content of b",
+      });
+    });
+
+    await act(async () => {
+      staleRequest.reject(new Error("disk read failed"));
+    });
+
+    expect(appendLog).not.toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("/a.cpp"),
+    );
+    expect(result.current.generatorFile?.path).toBe("/b.cpp");
+  });
+
+  it("does not resurrect a cleared file when its in-flight load resolves afterward", async () => {
+    const appendLog = vi.fn();
+    const pendingRequest = deferred<WorkspaceFilePayload>();
+
+    mockedInvoke.mockImplementationOnce(() => pendingRequest.promise);
+
+    const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "/a.cpp");
+    });
+    act(() => {
+      result.current.loadWorkspaceFile("generator", "");
+    });
+
+    expect(result.current.generatorFile).toBeNull();
+
+    await act(async () => {
+      pendingRequest.resolve({
+        path: "/a.cpp",
+        name: "a.cpp",
+        language: "cpp",
+        value: "content of a",
+      });
+    });
+
+    expect(result.current.generatorFile).toBeNull();
   });
 });

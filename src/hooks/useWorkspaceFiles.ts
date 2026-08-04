@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
-import type { SchemaNode } from "../types";
+import { useEffect, useRef, useState } from "react";
 import { inferLanguage } from "../utils/language";
 
 import type {
   GeneratorMode,
   LogLevel,
+  SchemaNode,
   WorkspaceFile,
   WorkspaceFilePayload,
   WorkspaceSlot,
@@ -75,7 +75,13 @@ export function useWorkspaceFiles(
       activeFileSlot: null,
     };
   };
+
   const [savedState] = useState<StoredWorkspaceState>(initialWorkspaceState);
+
+  const fileRef = useRef<Record<WorkspaceSlot, string>>({
+    generator: savedState.generatorPath,
+    solution: savedState.solutionPath,
+  });
 
   const [generatorFile, setGeneratorFile] = useState<WorkspaceFile | null>(
     null,
@@ -203,17 +209,23 @@ export function useWorkspaceFiles(
 
     if (!trimmedPath) {
       setWorkspaceFile(slot, null);
+      fileRef.current[slot] = "";
       return;
     }
+
+    fileRef.current[slot] = trimmedPath;
 
     try {
       const payload = await invoke<WorkspaceFilePayload>(
         "read_workspace_file",
         { path: trimmedPath },
       );
-      setWorkspaceFile(slot, payload);
+      if (fileRef.current[slot] == payload.path)
+        setWorkspaceFile(slot, payload);
     } catch (error) {
-      appendLog("error", `Could not open ${trimmedPath}: ${String(error)}`);
+      if (fileRef.current[slot] === trimmedPath) {
+        appendLog("error", `Could not open ${trimmedPath}: ${String(error)}`);
+      }
     }
   };
 
