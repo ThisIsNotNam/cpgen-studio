@@ -12,7 +12,7 @@ All other items below are being implemented in the lead-up to `1.0`.
 
 ## Generation & Schema
 
-- [ ] **Problem name field**: expose the problem name field already supported by the generation backend (currently hardcoded on the frontend)
+- [x] **Problem name field**: expose the problem name field already supported by the generation backend (currently hardcoded on the frontend)
 - [ ] **Starting index for test generation**: configurable starting index instead of a fixed default
 - [ ] **Optional solution file**: support generating tests only, without requiring a solution file
 - [ ] **Per-block separator field**: configurable separator between block outputs (currently hardcoded to newline)
@@ -24,7 +24,8 @@ All other items below are being implemented in the lead-up to `1.0`.
 
 ## Fixes
 
-- [ ] **Remove index delivery option in visual mode**: not applicable in this mode, should be hidden/disabled
+- [x] **Remove index delivery option in visual mode**: not applicable in this mode, should be hidden/disabled
+- [ ] **Optimize schema builder's findParentList**: currently running an (potentially) expensive tree walk when user starts dragging
 
 ## Editor & UI
 
