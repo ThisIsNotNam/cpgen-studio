@@ -1,3 +1,4 @@
+import { ChevronRight, Play } from "lucide-react";
 import { usePipelineContext } from "../context/PipelineContext";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
 
@@ -12,16 +13,7 @@ export default function EditorToolbar() {
         <span className="text-(--text-secondary) whitespace-nowrap">
           Workspace
         </span>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        <ChevronRight size={14} strokeWidth={2} />
         <span className="text-(--text-secondary) whitespace-nowrap">
           {generatorMode != "visual" ? activeFileName : "Visual builder"}
         </span>
@@ -33,16 +25,7 @@ export default function EditorToolbar() {
         disabled={isRunning}
         type="button"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
+        <Play size={14} strokeWidth={2} fill="currentColor" />
         {isRunning ? "Running..." : "Run"}
       </button>
     </div>
