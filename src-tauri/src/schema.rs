@@ -281,3 +281,580 @@ pub fn generate(nodes: &[SchemaNode], seed: Option<u64>) -> Result<String, Strin
     interp.eval_nodes(nodes, &mut lines)?;
     Ok(lines.join("\n"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_interp(seed: u64) -> Interpreter {
+        Interpreter {
+            rng: Box::new(StdRng::seed_from_u64(seed)),
+            vars: HashMap::new(),
+        }
+    }
+
+    // resolve_number / resolve_int
+
+    #[test]
+    fn resolve_number_valid_literal() {
+        let interp = make_interp(1);
+        assert_eq!(interp.resolve_number("field", "5").unwrap(), 5.0);
+    }
+
+    #[test]
+    fn resolve_number_tokenize_error() {
+        let interp = make_interp(1);
+        let err = interp.resolve_number("field", "@@@").unwrap_err();
+        assert!(err.contains("field"));
+    }
+
+    #[test]
+    fn resolve_number_parse_error() {
+        let interp = make_interp(1);
+        let err = interp.resolve_number("field", "(1+").unwrap_err();
+        assert!(err.contains("field"));
+    }
+
+    #[test]
+    fn resolve_number_eval_unknown_variable_error() {
+        let interp = make_interp(1);
+        let err = interp.resolve_number("field", "unknown_var").unwrap_err();
+        assert!(err.contains("field"));
+    }
+
+    #[test]
+    fn resolve_number_non_finite_errors() {
+        let interp = make_interp(1);
+        let err = interp.resolve_number("field", "1/0").unwrap_err();
+        assert!(err.contains("non-finite"));
+    }
+
+    #[test]
+    fn resolve_int_rounds_to_nearest() {
+        let interp = make_interp(1);
+        assert_eq!(interp.resolve_int("field", "2.6").unwrap(), 3);
+        assert_eq!(interp.resolve_int("field", "2.4").unwrap(), 2);
+    }
+
+    // numeric_env / bind
+
+    #[test]
+    fn numeric_env_filters_out_text_values() {
+        let mut interp = make_interp(1);
+        interp.vars.insert("n".to_string(), Value::Num(4.0));
+        interp.vars.insert("s".to_string(), Value::Text);
+        let env = interp.numeric_env();
+        assert_eq!(env.get("n"), Some(&4.0));
+        assert!(!env.contains_key("s"));
+    }
+
+    #[test]
+    fn bind_with_named_var_inserts() {
+        let mut interp = make_interp(1);
+        interp.bind(&Some("x".to_string()), Value::Num(7.0));
+        assert!(matches!(interp.vars.get("x"), Some(Value::Num(v)) if *v == 7.0));
+    }
+
+    #[test]
+    fn bind_with_empty_name_does_not_insert() {
+        let mut interp = make_interp(1);
+        interp.bind(&Some("".to_string()), Value::Num(7.0));
+        assert!(interp.vars.is_empty());
+    }
+
+    #[test]
+    fn bind_with_none_does_not_insert() {
+        let mut interp = make_interp(1);
+        interp.bind(&None, Value::Num(7.0));
+        assert!(interp.vars.is_empty());
+    }
+
+    // gen_int
+
+    #[test]
+    fn gen_int_within_range() {
+        let mut interp = make_interp(1);
+        for _ in 0..20 {
+            let v = interp.gen_int("1", "5").unwrap();
+            assert!((1..=5).contains(&v));
+        }
+    }
+
+    #[test]
+    fn gen_int_min_equals_max() {
+        let mut interp = make_interp(1);
+        assert_eq!(interp.gen_int("3", "3").unwrap(), 3);
+    }
+
+    #[test]
+    fn gen_int_min_greater_than_max_errors() {
+        let mut interp = make_interp(1);
+        let err = interp.gen_int("5", "1").unwrap_err();
+        assert!(err.contains("greater than max"));
+    }
+
+    // gen_float
+
+    #[test]
+    fn gen_float_within_range_and_precision() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_float("1", "1", "2").unwrap();
+        assert_eq!(s, "1.00");
+    }
+
+    #[test]
+    fn gen_float_negative_precision_clamped_to_zero() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_float("2", "2", "-3").unwrap();
+        assert_eq!(s, "2");
+    }
+
+    #[test]
+    fn gen_float_min_greater_than_max_errors() {
+        let mut interp = make_interp(1);
+        let err = interp.gen_float("5", "1", "2").unwrap_err();
+        assert!(err.contains("greater than max"));
+    }
+
+    // gen_string
+
+    #[test]
+    fn gen_string_lowercase() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_string("10", &Charset::Lowercase, &None).unwrap();
+        assert_eq!(s.len(), 10);
+        assert!(s.chars().all(|c| c.is_ascii_lowercase()));
+    }
+
+    #[test]
+    fn gen_string_uppercase() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_string("10", &Charset::Uppercase, &None).unwrap();
+        assert_eq!(s.len(), 10);
+        assert!(s.chars().all(|c| c.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn gen_string_alphanumeric() {
+        let mut interp = make_interp(1);
+        let s = interp
+            .gen_string("20", &Charset::Alphanumeric, &None)
+            .unwrap();
+        assert_eq!(s.len(), 20);
+        assert!(s.chars().all(|c| c.is_ascii_alphanumeric()));
+    }
+
+    #[test]
+    fn gen_string_digits() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_string("10", &Charset::Digits, &None).unwrap();
+        assert_eq!(s.len(), 10);
+        assert!(s.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn gen_string_custom() {
+        let mut interp = make_interp(1);
+        let custom = Some("xyz".to_string());
+        let s = interp.gen_string("10", &Charset::Custom, &custom).unwrap();
+        assert_eq!(s.len(), 10);
+        assert!(s.chars().all(|c| "xyz".contains(c)));
+    }
+
+    #[test]
+    fn gen_string_custom_none_errors_empty_alphabet() {
+        let mut interp = make_interp(1);
+        let err = interp
+            .gen_string("10", &Charset::Custom, &None)
+            .unwrap_err();
+        assert!(err.contains("empty character set"));
+    }
+
+    #[test]
+    fn gen_string_custom_empty_string_errors() {
+        let mut interp = make_interp(1);
+        let custom = Some("".to_string());
+        let err = interp
+            .gen_string("10", &Charset::Custom, &custom)
+            .unwrap_err();
+        assert!(err.contains("empty character set"));
+    }
+
+    #[test]
+    fn gen_string_negative_length_errors() {
+        let mut interp = make_interp(1);
+        let err = interp
+            .gen_string("-1", &Charset::Lowercase, &None)
+            .unwrap_err();
+        assert!(err.contains("cannot be negative"));
+    }
+
+    #[test]
+    fn gen_string_zero_length() {
+        let mut interp = make_interp(1);
+        let s = interp.gen_string("0", &Charset::Lowercase, &None).unwrap();
+        assert_eq!(s, "");
+    }
+
+    // gen_primitive
+
+    #[test]
+    fn gen_primitive_int_variant() {
+        let mut interp = make_interp(1);
+        let spec = PrimitiveSpec::Int {
+            min: "5".to_string(),
+            max: "5".to_string(),
+        };
+        assert_eq!(interp.gen_primitive(&spec).unwrap(), "5");
+    }
+
+    #[test]
+    fn gen_primitive_float_variant() {
+        let mut interp = make_interp(1);
+        let spec = PrimitiveSpec::Float {
+            min: "1".to_string(),
+            max: "1".to_string(),
+            precision: "1".to_string(),
+        };
+        assert_eq!(interp.gen_primitive(&spec).unwrap(), "1.0");
+    }
+
+    #[test]
+    fn gen_primitive_string_variant() {
+        let mut interp = make_interp(1);
+        let spec = PrimitiveSpec::String {
+            length: "3".to_string(),
+            charset: Charset::Digits,
+            custom_charset: None,
+        };
+        let s = interp.gen_primitive(&spec).unwrap();
+        assert_eq!(s.len(), 3);
+        assert!(s.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    // eval_nodes: Int
+
+    #[test]
+    fn eval_nodes_int_binds_var_and_outputs() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Int {
+            var_name: Some("n".to_string()),
+            min: "4".to_string(),
+            max: "4".to_string(),
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["4".to_string()]);
+        assert!(matches!(interp.vars.get("n"), Some(Value::Num(v)) if *v == 4.0));
+    }
+
+    // eval_nodes: Float
+
+    #[test]
+    fn eval_nodes_float_binds_var_and_outputs() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Float {
+            var_name: Some("f".to_string()),
+            min: "2.5".to_string(),
+            max: "2.5".to_string(),
+            precision: "1".to_string(),
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["2.5".to_string()]);
+        assert!(matches!(interp.vars.get("f"), Some(Value::Num(v)) if (*v - 2.5).abs() < 1e-9));
+    }
+
+    // eval_nodes: String
+
+    #[test]
+    fn eval_nodes_string_binds_var_as_text() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::String {
+            var_name: Some("s".to_string()),
+            length: "5".to_string(),
+            charset: Charset::Lowercase,
+            custom_charset: None,
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out[0].len(), 5);
+        assert!(matches!(interp.vars.get("s"), Some(Value::Text)));
+    }
+
+    // eval_nodes: Array
+
+    #[test]
+    fn eval_nodes_array_space_separator() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: None,
+            length: "3".to_string(),
+            separator: Separator::Space,
+            element: PrimitiveSpec::Int {
+                min: "1".to_string(),
+                max: "1".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["1 1 1".to_string()]);
+    }
+
+    #[test]
+    fn eval_nodes_array_newline_separator() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: None,
+            length: "2".to_string(),
+            separator: Separator::Newline,
+            element: PrimitiveSpec::Int {
+                min: "2".to_string(),
+                max: "2".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["2\n2".to_string()]);
+    }
+
+    #[test]
+    fn eval_nodes_array_comma_separator() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: None,
+            length: "2".to_string(),
+            separator: Separator::Comma,
+            element: PrimitiveSpec::Int {
+                min: "3".to_string(),
+                max: "3".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["3,3".to_string()]);
+    }
+
+    #[test]
+    fn eval_nodes_array_binds_var_as_text() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: Some("arr".to_string()),
+            length: "2".to_string(),
+            separator: Separator::Comma,
+            element: PrimitiveSpec::Int {
+                min: "1".to_string(),
+                max: "1".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert!(matches!(interp.vars.get("arr"), Some(Value::Text)));
+    }
+
+    #[test]
+    fn eval_nodes_array_negative_length_errors() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: None,
+            length: "-1".to_string(),
+            separator: Separator::Space,
+            element: PrimitiveSpec::Int {
+                min: "1".to_string(),
+                max: "1".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        let err = interp.eval_nodes(&nodes, &mut out).unwrap_err();
+        assert!(err.contains("cannot be negative"));
+    }
+
+    #[test]
+    fn eval_nodes_array_zero_length_produces_empty_line() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Array {
+            var_name: None,
+            length: "0".to_string(),
+            separator: Separator::Space,
+            element: PrimitiveSpec::Int {
+                min: "1".to_string(),
+                max: "1".to_string(),
+            },
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["".to_string()]);
+    }
+
+    // eval_nodes: Loop
+
+    #[test]
+    fn eval_nodes_loop_repeats_children() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Loop {
+            count: "3".to_string(),
+            children: vec![SchemaNode::Int {
+                var_name: None,
+                min: "9".to_string(),
+                max: "9".to_string(),
+            }],
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out, vec!["9".to_string(), "9".to_string(), "9".to_string()]);
+    }
+
+    #[test]
+    fn eval_nodes_loop_zero_reps_produces_nothing() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Loop {
+            count: "0".to_string(),
+            children: vec![SchemaNode::Int {
+                var_name: None,
+                min: "9".to_string(),
+                max: "9".to_string(),
+            }],
+        }];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn eval_nodes_loop_negative_count_errors() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Loop {
+            count: "-2".to_string(),
+            children: vec![],
+        }];
+        let mut out = Vec::new();
+        let err = interp.eval_nodes(&nodes, &mut out).unwrap_err();
+        assert!(err.contains("cannot be negative"));
+    }
+
+    #[test]
+    fn eval_nodes_loop_propagates_child_error() {
+        let mut interp = make_interp(1);
+        let nodes = vec![SchemaNode::Loop {
+            count: "2".to_string(),
+            children: vec![SchemaNode::Int {
+                var_name: None,
+                min: "5".to_string(),
+                max: "1".to_string(),
+            }],
+        }];
+        let mut out = Vec::new();
+        let err = interp.eval_nodes(&nodes, &mut out).unwrap_err();
+        assert!(err.contains("greater than max"));
+    }
+
+    // cross-node variable interaction
+
+    #[test]
+    fn eval_nodes_var_bound_by_int_used_by_later_node() {
+        let mut interp = make_interp(1);
+        let nodes = vec![
+            SchemaNode::Int {
+                var_name: Some("n".to_string()),
+                min: "5".to_string(),
+                max: "5".to_string(),
+            },
+            SchemaNode::Array {
+                var_name: None,
+                length: "n".to_string(),
+                separator: Separator::Space,
+                element: PrimitiveSpec::Int {
+                    min: "1".to_string(),
+                    max: "1".to_string(),
+                },
+            },
+        ];
+        let mut out = Vec::new();
+        interp.eval_nodes(&nodes, &mut out).unwrap();
+        assert_eq!(out[1], "1 1 1 1 1");
+    }
+
+    #[test]
+    fn eval_nodes_text_var_not_usable_numerically() {
+        let mut interp = make_interp(1);
+        let nodes = vec![
+            SchemaNode::String {
+                var_name: Some("s".to_string()),
+                length: "3".to_string(),
+                charset: Charset::Lowercase,
+                custom_charset: None,
+            },
+            SchemaNode::Int {
+                var_name: None,
+                min: "s".to_string(),
+                max: "s".to_string(),
+            },
+        ];
+        let mut out = Vec::new();
+        let err = interp.eval_nodes(&nodes, &mut out).unwrap_err();
+        assert!(err.contains("min"));
+    }
+
+    // generate()
+
+    #[test]
+    fn generate_joins_lines_with_newline() {
+        let nodes = vec![
+            SchemaNode::Int {
+                var_name: None,
+                min: "1".to_string(),
+                max: "1".to_string(),
+            },
+            SchemaNode::Int {
+                var_name: None,
+                min: "2".to_string(),
+                max: "2".to_string(),
+            },
+        ];
+        let result = generate(&nodes, Some(42)).unwrap();
+        assert_eq!(result, "1\n2");
+    }
+
+    #[test]
+    fn generate_is_deterministic_with_seed() {
+        let nodes = vec![SchemaNode::String {
+            var_name: None,
+            length: "16".to_string(),
+            charset: Charset::Alphanumeric,
+            custom_charset: None,
+        }];
+        let a = generate(&nodes, Some(123)).unwrap();
+        let b = generate(&nodes, Some(123)).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn generate_without_seed_runs_successfully() {
+        let nodes = vec![SchemaNode::Int {
+            var_name: None,
+            min: "1".to_string(),
+            max: "10".to_string(),
+        }];
+        let result = generate(&nodes, None).unwrap();
+        let v: i64 = result.parse().unwrap();
+        assert!((1..=10).contains(&v));
+    }
+
+    #[test]
+    fn generate_propagates_error() {
+        let nodes = vec![SchemaNode::Int {
+            var_name: None,
+            min: "10".to_string(),
+            max: "1".to_string(),
+        }];
+        let err = generate(&nodes, Some(1)).unwrap_err();
+        assert!(err.contains("greater than max"));
+    }
+
+    #[test]
+    fn generate_empty_nodes_produces_empty_string() {
+        let nodes: Vec<SchemaNode> = vec![];
+        let result = generate(&nodes, Some(1)).unwrap();
+        assert_eq!(result, "");
+    }
+}
