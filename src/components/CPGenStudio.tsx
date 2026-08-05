@@ -1,13 +1,16 @@
-import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+import { tabSlot } from "../types";
+
 import {
   Group,
   Panel,
   Separator,
   useDefaultLayout,
 } from "react-resizable-panels";
-import EditorCanvas from "./EditorCanvas";
 import ConsoleLogs from "./ConsoleLogs";
+import EditorCanvas from "./EditorCanvas";
+import Sidebar from "./sideBar";
 
 export default function CPGenStudio() {
   useEffect(() => {
@@ -18,8 +21,11 @@ export default function CPGenStudio() {
     id: "cpgen_main_layout",
   });
 
+  const [activeTab, setActiveTab] = useState<tabSlot>("editor");
+
   return (
-    <div className="w-full h-full min-h-0">
+    <div className="w-full h-full min-h-0 flex flex-row overflow-hidden bg-background">
+      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
       <div className="w-full h-full min-h-0 flex flex-col overflow-hidden">
         <Group
           orientation="vertical"
