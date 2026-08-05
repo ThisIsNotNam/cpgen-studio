@@ -6,15 +6,18 @@ interface SidebarProps {
   onSelectTab: (tab: tabSlot) => void;
 }
 
+const ACTIVE_TAB_STYLE =
+  "text-(--text-primary) border-(--accent) bg-(--bg-primary)";
+const INACTIVE_TAB_STYLE =
+  "text-(--text-muted) border-transparent hover:text-(--text-primary) hover:bg-(--bg-tertiary)";
+
 export default function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
   return (
-    <aside className="w-11 h-full shrink-0 border-r border-(--border) bg-background flex flex-col items-center py-3 space-y-2 select-none">
+    <aside className="w-14 h-full shrink-0 border-r border-(--border) bg-background flex flex-col items-center py-3 space-y-2 select-none">
       <button
         onClick={() => onSelectTab("editor")}
         className={`p-2.5 rounded-lg transition-colors ${
-          activeTab === "editor"
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          activeTab === "editor" ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE
         }`}
         title="Editor"
       >
@@ -24,9 +27,7 @@ export default function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
       <button
         onClick={() => onSelectTab("settings")}
         className={`p-2.5 rounded-lg transition-colors ${
-          activeTab === "settings"
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          activeTab === "settings" ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE
         }`}
         title="Settings"
       >

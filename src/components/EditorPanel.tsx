@@ -87,7 +87,7 @@ export default function EditorPanel() {
 
         <span className="flex-1" />
         {activeFile && !showSchemaPreview && (
-          <span className="self-center text-(--text-muted) uppercase text-[12px]">
+          <span className="self-center text-(--text-muted) uppercase text-[12px] px-3.5">
             {activeFile.language}
           </span>
         )}

@@ -20,7 +20,7 @@ export default function EditorToolbar() {
       </div>
       <div className="flex-1" />
       <button
-        className="h-7.5 px-3.5 rounded-md border cursor-pointer inline-flex items-center gap-1.5 text-[13px] bg-(--accent) border-(--accent) text-white hover:bg-(--accent-hover) disabled:opacity-50 disabled:cursor-wait"
+        className="h-7 px-3 rounded-sm border cursor-pointer inline-flex items-center gap-1.5 text-[13px] bg-(--accent) border-(--accent) text-white hover:bg-(--accent-hover) disabled:opacity-50 disabled:cursor-wait"
         onClick={executePipeline}
         disabled={isRunning}
         type="button"
