@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import { useState } from "react";
 import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
 import { usePipelineContext } from "../context/PipelineContext";
+import { useSettingsContext } from "../context/SettingsContext";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
 import { useMonacoEditor } from "../hooks/useMonacoEditor";
 import SchemaPreviewPanel from "./schema/SchemaPreviewPanel";
@@ -43,6 +44,7 @@ export default function EditorPanel() {
 
   const { appendLog } = useConsoleLogsContext();
   const { previewSchema } = usePipelineContext();
+  const { fontSize, fontFamily } = useSettingsContext();
 
   const { handleEditorMount } = useMonacoEditor({
     activeFile,
@@ -107,7 +109,11 @@ export default function EditorPanel() {
                 language={activeFile.language}
                 defaultValue={activeFile.value}
                 onMount={handleEditorMount}
-                options={EDITOR_OPTIONS}
+                options={{
+                  ...EDITOR_OPTIONS,
+                  fontSize: fontSize,
+                  fontFamily: fontFamily,
+                }}
               />
             </div>
           )}

@@ -13,6 +13,8 @@ export interface WorkspaceFilePayload {
   value: string;
 }
 
+export type SettingKey = "fontSize" | "fontFamily";
+
 export type WorkspaceSlot = "generator" | "solution";
 
 export type tabSlot = "settings" | "editor";

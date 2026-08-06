@@ -1,7 +1,8 @@
 import CPGenStudio from "./components/CPGenStudio";
 import { ConsoleLogsProvider } from "./context/ConsoleLogsContext";
-import { WorkspaceProvider } from "./context/WorkspaceContext";
 import { PipelineProvider } from "./context/PipelineContext";
+import { SettingsProvider } from "./context/SettingsContext";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
 
 function App() {
   return (
@@ -9,7 +10,9 @@ function App() {
       <ConsoleLogsProvider>
         <WorkspaceProvider>
           <PipelineProvider>
-            <CPGenStudio />
+            <SettingsProvider>
+              <CPGenStudio />
+            </SettingsProvider>
           </PipelineProvider>
         </WorkspaceProvider>
       </ConsoleLogsProvider>

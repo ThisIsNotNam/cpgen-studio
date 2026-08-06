@@ -26,7 +26,7 @@ export default function Sidebar({ activeTab, onSelectTab }: SidebarProps) {
 
       <button
         onClick={() => onSelectTab("settings")}
-        className={`p-2.5 rounded-lg transition-colors ${
+        className={`p-2.5 rounded-lg transition-colors mt-auto ${
           activeTab === "settings" ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE
         }`}
         title="Settings"
