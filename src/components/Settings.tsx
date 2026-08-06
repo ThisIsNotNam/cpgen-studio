@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSettingsContext } from "../context/SettingsContext";
+import type { SettingKey } from "../types";
 import Section from "./Section";
 
-const ROW_CLASS = "flex items-center gap-3 mb-3";
+const ROW_CLASS = "flex items-center gap-3 mb-3 items-start";
 const LABEL_CLASS =
-  "w-[85px] text-[13px] text-(--text-secondary) shrink-0 text-right";
+  "w-[85px] text-[13px] text-(--text-secondary) shrink-0 text-right pt-1.5";
 const INPUT_CLASS =
   "w-full h-8 px-2.5 bg-(--bg-input) border border-(--border) rounded text-(--text-primary) text-[13px] outline-none focus:border-(--accent) focus:ring-2 focus:ring-[rgba(59,130,246,0.15)]";
 
@@ -24,6 +25,42 @@ const FONT_OPTIONS = [
   },
 ];
 
+function useCommittedSetting<T extends number | string>(
+  key: SettingKey,
+  currentValue: T,
+  onSettingChange: (key: SettingKey, value: number | string) => void,
+  parse: (raw: string) => T | null,
+  clamp?: (value: T) => T,
+) {
+  const [inputValue, setInputValue] = useState(String(currentValue));
+
+  useEffect(() => {
+    setInputValue(String(currentValue));
+  }, [currentValue]);
+
+  const commit = (raw: string = inputValue) => {
+    const parsed = parse(raw);
+    const next =
+      parsed === null ? currentValue : clamp ? clamp(parsed) : parsed;
+    setInputValue(String(next));
+    if (next !== currentValue) onSettingChange(key, next);
+  };
+
+  return { inputValue, setInputValue, commit };
+}
+
+const parseFontSize = (raw: string): number | null => {
+  if (raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+};
+const clampFontSize = (n: number) => Math.min(32, Math.max(8, Math.round(n)));
+
+const parseFontFamily = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  return trimmed === "" ? null : trimmed;
+};
+
 export default function Settings() {
   const {
     fontSize,
@@ -33,20 +70,20 @@ export default function Settings() {
     setError,
   } = useSettingsContext();
 
-  const [fontSizeInput, setFontSizeInput] = useState(String(fontSize));
+  const fontSizeField = useCommittedSetting(
+    "fontSize",
+    fontSize,
+    onSettingChange,
+    parseFontSize,
+    clampFontSize,
+  );
 
-  useEffect(() => {
-    setFontSizeInput(String(fontSize));
-  }, [fontSize]);
-
-  const commitFontSize = () => {
-    const parsed = Number(fontSizeInput);
-    const clamped = Number.isFinite(parsed)
-      ? Math.min(32, Math.max(8, Math.round(parsed)))
-      : fontSize;
-    setFontSizeInput(String(clamped));
-    if (clamped !== fontSize) onSettingChange("fontSize", clamped);
-  };
+  const fontFamilyField = useCommittedSetting(
+    "fontFamily",
+    fontFamily,
+    onSettingChange,
+    parseFontFamily,
+  );
 
   return (
     <div className="h-full flex items-center justify-center p-6 bg-(--bg-primary)">
@@ -71,11 +108,13 @@ export default function Settings() {
               <input
                 type="number"
                 className={INPUT_CLASS}
-                value={fontSizeInput}
+                value={fontSizeField.inputValue}
                 min={8}
                 max={32}
-                onChange={(event) => setFontSizeInput(event.target.value)}
-                onBlur={commitFontSize}
+                onChange={(event) =>
+                  fontSizeField.setInputValue(event.target.value)
+                }
+                onBlur={() => fontSizeField.commit()}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") event.currentTarget.blur();
                 }}
@@ -84,21 +123,36 @@ export default function Settings() {
           </div>
 
           <div className={ROW_CLASS}>
-            <label className={LABEL_CLASS}>Font family</label>
+            <label className={`${LABEL_CLASS}`}>Font family</label>
             <div className="flex-1 min-w-0">
-              <select
+              <input
+                type="text"
+                autoComplete="off"
                 className={INPUT_CLASS}
-                value={fontFamily}
+                value={fontFamilyField.inputValue}
                 onChange={(event) =>
-                  onSettingChange("fontFamily", event.target.value)
+                  fontFamilyField.setInputValue(event.target.value)
                 }
-              >
+                onBlur={() => fontFamilyField.commit()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+                placeholder='"Fira Code", monospace'
+              />
+              <div className="flex gap-1.5 mt-1.5">
                 {FONT_OPTIONS.map((opt) => (
-                  <option key={opt.label} value={opt.value}>
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => {
+                      fontFamilyField.commit(opt.value);
+                    }}
+                    className="px-2 py-1 text-[11px] rounded border border-(--border) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent)"
+                  >
                     {opt.label}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           </div>
         </Section>
