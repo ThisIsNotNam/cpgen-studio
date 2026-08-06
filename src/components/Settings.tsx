@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSettingsContext } from "../context/SettingsContext";
 import type { SettingKey } from "../types";
 import Section from "./Section";
@@ -32,11 +32,13 @@ function useCommittedSetting<T extends number | string>(
   parse: (raw: string) => T | null,
   clamp?: (value: T) => T,
 ) {
+  const [prevValue, setPrevValue] = useState(currentValue);
   const [inputValue, setInputValue] = useState(String(currentValue));
 
-  useEffect(() => {
+  if (currentValue !== prevValue) {
+    setPrevValue(currentValue);
     setInputValue(String(currentValue));
-  }, [currentValue]);
+  }
 
   const commit = (raw: string = inputValue) => {
     const parsed = parse(raw);
