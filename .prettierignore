@@ -1,5 +1,5 @@
 dist
-src-tauri/target
+src-tauri/
 package-lock.json
 node_modules
 public/monaco-editor
