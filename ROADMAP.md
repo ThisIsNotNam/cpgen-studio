@@ -30,7 +30,7 @@ All other items below are being implemented in the lead-up to `1.0`.
 ## Editor & UI
 
 - [ ] **Color-coded blocks**: visual differentiation by block category (input / output / constraint / generator, etc.)
-- [ ] **Settings page**: global configuration for application behavior, compiler flags, and other configurable defaults
+- [x] **Settings page**: global configuration for application behavior, compiler flags, and other configurable defaults
 
 ## Subtasks (1.0)
 
