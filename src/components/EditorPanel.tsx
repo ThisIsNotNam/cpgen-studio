@@ -8,6 +8,7 @@ import { useMonacoEditor } from "../hooks/useMonacoEditor";
 import SchemaPreviewPanel from "./schema/SchemaPreviewPanel";
 
 const EDITOR_OPTIONS = {
+  mouseWheelZoom: true,
   fontSize: 13,
   fontFamily:
     '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
