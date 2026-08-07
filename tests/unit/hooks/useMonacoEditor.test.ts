@@ -9,6 +9,20 @@ interface MockModel {
   getAlternativeVersionId: () => number;
   isDisposed: () => boolean;
   onDidChangeContent: (cb: () => void) => { dispose: () => void };
+  getPositionAt: (offset: number) => { lineNumber: number; column: number };
+  pushEditOperations: (
+    selections: unknown[],
+    edits: Array<{
+      range: {
+        startLineNumber: number;
+        startColumn: number;
+        endLineNumber: number;
+        endColumn: number;
+      };
+      text: string;
+    }>,
+    cursorStateComputer: (inverseEditOperations: unknown[]) => unknown,
+  ) => void;
   // test-only helpers, not part of the real Monaco API
   __simulateUserEdit: (newValue: string) => void;
   __dispose: () => void;
@@ -22,6 +36,73 @@ function createMockModel(
   let versionId = 1;
   let disposed = false;
   const listeners = new Set<() => void>();
+
+  const getLineStartOffsets = () => {
+    const offsets = [0];
+    for (let index = 0; index < value.length; index++) {
+      if (value[index] === "\n") offsets.push(index + 1);
+    }
+    return offsets;
+  };
+
+  const getOffsetAtPosition = (lineNumber: number, column: number) => {
+    const lineStartOffsets = getLineStartOffsets();
+    return (lineStartOffsets[lineNumber - 1] ?? value.length) + column - 1;
+  };
+
+  const getPositionAtOffset = (offset: number) => {
+    const clampedOffset = Math.max(0, Math.min(offset, value.length));
+    const lineStartOffsets = getLineStartOffsets();
+    let lineIndex = 0;
+    for (let index = 0; index < lineStartOffsets.length; index++) {
+      if (lineStartOffsets[index] <= clampedOffset) lineIndex = index;
+      else break;
+    }
+    return {
+      lineNumber: lineIndex + 1,
+      column: clampedOffset - lineStartOffsets[lineIndex] + 1,
+    };
+  };
+
+  const applyEdits = (
+    source: string,
+    edits: Array<{
+      range: {
+        startLineNumber: number;
+        startColumn: number;
+        endLineNumber: number;
+        endColumn: number;
+      };
+      text: string;
+    }>,
+  ) => {
+    let nextValue = source;
+    const sortedEdits = [...edits].sort((left, right) => {
+      const leftStart = getOffsetAtPosition(
+        left.range.startLineNumber,
+        left.range.startColumn,
+      );
+      const rightStart = getOffsetAtPosition(
+        right.range.startLineNumber,
+        right.range.startColumn,
+      );
+      return rightStart - leftStart;
+    });
+
+    for (const edit of sortedEdits) {
+      const startOffset = getOffsetAtPosition(
+        edit.range.startLineNumber,
+        edit.range.startColumn,
+      );
+      const endOffset = getOffsetAtPosition(
+        edit.range.endLineNumber,
+        edit.range.endColumn,
+      );
+      nextValue = `${nextValue.slice(0, startOffset)}${edit.text}${nextValue.slice(endOffset)}`;
+    }
+
+    return nextValue;
+  };
 
   return {
     _savedVersionId: savedVersionId,
@@ -37,6 +118,12 @@ function createMockModel(
       listeners.add(cb);
       return { dispose: () => listeners.delete(cb) };
     },
+    getPositionAt: getPositionAtOffset,
+    pushEditOperations: (_selections, edits) => {
+      value = applyEdits(value, edits);
+      versionId++;
+      listeners.forEach((listener) => listener());
+    },
     __simulateUserEdit: (newValue: string) => {
       value = newValue;
       versionId++;
@@ -50,6 +137,7 @@ function createMockModel(
 
 interface MockEditorInstance {
   getModel: () => MockModel | null;
+  getSelections: () => null;
   onDidChangeModel: (cb: () => void) => { dispose: () => void };
   onDidDispose: (cb: () => void) => void;
   addCommand: (keybinding: number, cb: () => void | Promise<void>) => void;
@@ -70,6 +158,7 @@ function createMockEditorInstance(
 
   return {
     getModel: () => currentModel,
+    getSelections: () => null,
     onDidChangeModel: (cb) => {
       modelChangeListeners.add(cb);
       return { dispose: () => modelChangeListeners.delete(cb) };
@@ -271,7 +360,7 @@ describe("useMonacoEditor", () => {
 
       expect(handleCodeChange).toHaveBeenCalledWith(
         "/tmp/gen.cpp",
-        "edited via ctrl+s",
+        "edited via ctrl+s\n",
       );
       expect(saveActiveFile).toHaveBeenCalledTimes(1);
       expect(setIsDirty).toHaveBeenLastCalledWith("/tmp/gen.cpp", false);
@@ -308,10 +397,50 @@ describe("useMonacoEditor", () => {
 
       expect(handleCodeChange).toHaveBeenCalledWith(
         "/tmp/gen.cpp",
-        "unsaved edit",
+        "unsaved edit\n",
       );
       expect(saveActiveFile).toHaveBeenCalledTimes(1);
       expect(setIsDirty).toHaveBeenLastCalledWith("/tmp/gen.cpp", false);
+    });
+
+    it("cleans trailing whitespace and appends a final newline before saving", async () => {
+      const handleCodeChange = vi.fn();
+      const setIsDirty = vi.fn();
+      const saveActiveFile = vi.fn().mockResolvedValue(true);
+      const activeFile = makeActiveFile({
+        value: "first line   \nsecond line\t\t",
+        isDirty: false,
+      });
+      const model = createMockModel(activeFile.value);
+      const editorInstance = createMockEditorInstance(model as never);
+
+      const { result } = renderHook(() =>
+        useMonacoEditor({
+          activeFile,
+          handleCodeChange,
+          saveActiveFile,
+          setIsDirty,
+        }),
+      );
+
+      act(() => {
+        result.current.handleEditorMount(editorInstance as never, monacoNs);
+      });
+
+      act(() => {
+        model.__simulateUserEdit("first line   \nsecond line\t\t");
+      });
+
+      await act(async () => {
+        await result.current.performSave();
+      });
+
+      expect(model.getValue()).toBe("first line\nsecond line\n");
+      expect(handleCodeChange).toHaveBeenCalledWith(
+        "/tmp/gen.cpp",
+        "first line\nsecond line\n",
+      );
+      expect(saveActiveFile).toHaveBeenCalledTimes(1);
     });
 
     it("does not mark the file clean if saveActiveFile resolves false", async () => {
@@ -342,7 +471,7 @@ describe("useMonacoEditor", () => {
       });
 
       expect(success).toBe(false);
-      expect(setIsDirty).not.toHaveBeenCalled();
+      expect(setIsDirty).toHaveBeenLastCalledWith("/tmp/gen.cpp", true);
     });
 
     it("returns false and does not throw if saveActiveFile rejects", async () => {
