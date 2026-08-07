@@ -1,5 +1,5 @@
 import type { OnMount } from "@monaco-editor/react";
-import type { editor, IDisposable } from "monaco-editor";
+import type { editor, IDisposable, Selection } from "monaco-editor";
 import { useCallback, useEffect, useInsertionEffect, useRef } from "react";
 import type { WorkspaceFile } from "../types";
 
@@ -24,6 +24,38 @@ function useLatest<T>(value: T) {
   return ref;
 }
 
+function cleanCode(model: TrackedModel, selections: Selection[] | null) {
+  const original = model.getValue();
+  if (!original) return;
+  const edits: editor.IIdentifiedSingleEditOperation[] = [];
+  const toRange = (start: number, end: number) => ({
+    startLineNumber: model.getPositionAt(start).lineNumber,
+    startColumn: model.getPositionAt(start).column,
+    endLineNumber: model.getPositionAt(end).lineNumber,
+    endColumn: model.getPositionAt(end).column,
+  });
+  const trailingMatch = original.match(/\s+$/);
+  const trailingMatchStart = trailingMatch?.index ?? original.length;
+
+  for (const m of original.matchAll(/[ \t]+(?=\r?\n|$)/g)) {
+    const start = m.index ?? -1;
+    if (start >= 0 && start < trailingMatchStart) {
+      edits.push({ range: toRange(start, start + m[0].length), text: "" });
+    }
+  }
+
+  if (!trailingMatch || trailingMatch[0] !== "\n") {
+    edits.push({
+      range: toRange(trailingMatchStart, original.length),
+      text: "\n",
+    });
+  }
+
+  if (edits.length === 0) return;
+  const before = selections ?? [];
+  model.pushEditOperations(before, edits, () => before);
+}
+
 export function useMonacoEditor({
   activeFile,
   handleCodeChange,
@@ -36,6 +68,7 @@ export function useMonacoEditor({
   const setIsDirtyRef = useLatest(setIsDirty);
   const activeFileRef = useLatest(activeFile);
   const modelRef = useRef<TrackedModel | null>(null);
+  const editorRef = useRef<editor.ICodeEditor | null>(null);
   // Path the *currently bound* model corresponds to (not necessarily activeFile.path,
   // which may already have moved on by the time an async flush runs).
   const boundPathRef = useRef<string | null>(null);
@@ -74,10 +107,11 @@ export function useMonacoEditor({
   }, [handleCodeChangeRef]);
 
   const performSave = useCallback(async (): Promise<boolean> => {
-    flush();
     const currentModel = modelRef.current;
     const savePath = boundPathRef.current;
     if (!currentModel || currentModel.isDisposed() || !savePath) return false;
+    cleanCode(currentModel, editorRef.current?.getSelections() ?? null);
+    flush();
 
     const versionAtSave = currentModel.getAlternativeVersionId();
 
@@ -101,6 +135,8 @@ export function useMonacoEditor({
   }, [flush, saveRef, setIsDirtyRef]);
 
   const handleEditorMount: OnMount = (editorInstance, monaco) => {
+    editorRef.current = editorInstance;
+
     const bindModel = (model: TrackedModel | null) => {
       // Flush whatever was pending on the *previous* model before losing the ref to it.
       flush();
