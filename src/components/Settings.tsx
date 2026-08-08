@@ -63,14 +63,45 @@ const parseFontFamily = (raw: string): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
+interface SettingFieldProps {
+  label: string;
+  field: Pick<
+    ReturnType<typeof useCommittedSetting>,
+    "inputValue" | "setInputValue" | "commit"
+  >;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+  children?: React.ReactNode;
+}
+
+function SettingField({
+  label,
+  field,
+  inputProps,
+  children,
+}: SettingFieldProps) {
+  return (
+    <div className={ROW_CLASS}>
+      <label className={LABEL_CLASS}>{label}</label>
+      <div className="flex-1 min-w-0">
+        <input
+          className={INPUT_CLASS}
+          value={field.inputValue}
+          onChange={(event) => field.setInputValue(event.target.value)}
+          onBlur={() => field.commit()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+          {...inputProps}
+        />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
-  const {
-    fontSize,
-    fontFamily,
-    onSettingChange: onSettingChange,
-    error,
-    setError,
-  } = useSettingsContext();
+  const { fontSize, fontFamily, onSettingChange, error, setError } =
+    useSettingsContext();
 
   const fontSizeField = useCommittedSetting(
     "fontSize",
@@ -104,59 +135,34 @@ export default function Settings() {
           </div>
         )}
         <Section title="Editor">
-          <div className={ROW_CLASS}>
-            <label className={LABEL_CLASS}>Font size</label>
-            <div className="flex-1 min-w-0">
-              <input
-                type="number"
-                className={INPUT_CLASS}
-                value={fontSizeField.inputValue}
-                min={8}
-                max={32}
-                onChange={(event) =>
-                  fontSizeField.setInputValue(event.target.value)
-                }
-                onBlur={() => fontSizeField.commit()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") event.currentTarget.blur();
-                }}
-              />
-            </div>
-          </div>
+          <SettingField
+            label="Font size"
+            field={fontSizeField}
+            inputProps={{ type: "number", min: 8, max: 32 }}
+          />
 
-          <div className={ROW_CLASS}>
-            <label className={`${LABEL_CLASS}`}>Font family</label>
-            <div className="flex-1 min-w-0">
-              <input
-                type="text"
-                autoComplete="off"
-                className={INPUT_CLASS}
-                value={fontFamilyField.inputValue}
-                onChange={(event) =>
-                  fontFamilyField.setInputValue(event.target.value)
-                }
-                onBlur={() => fontFamilyField.commit()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") event.currentTarget.blur();
-                }}
-                placeholder='"Fira Code", monospace'
-              />
-              <div className="flex gap-1.5 mt-1.5">
-                {FONT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => {
-                      fontFamilyField.commit(opt.value);
-                    }}
-                    className="px-2 py-1 text-[11px] rounded border border-(--border) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent)"
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+          <SettingField
+            label="Font family"
+            field={fontFamilyField}
+            inputProps={{
+              type: "text",
+              autoComplete: "off",
+              placeholder: '"Fira Code", monospace',
+            }}
+          >
+            <div className="flex gap-1.5 mt-1.5">
+              {FONT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => fontFamilyField.commit(opt.value)}
+                  className="px-2 py-1 text-[11px] rounded border border-(--border) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent)"
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-          </div>
+          </SettingField>
         </Section>
       </div>
     </div>

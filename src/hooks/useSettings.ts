@@ -13,6 +13,14 @@ const DEFAULT_SETTINGS: SettingsState = {
     '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
 };
 
+function assignSetting<K extends keyof SettingsState>(
+  target: SettingsState,
+  key: K,
+  value: SettingsState[K],
+) {
+  target[key] = value;
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -34,15 +42,21 @@ export function useSettings() {
         setIsLoaded(true);
         return;
       }
-      const [fontSize, fontFamily] = await Promise.all([
-        store.get<number>("fontSize"),
-        store.get<string>("fontFamily"),
-      ]);
+      const keys = Object.keys(DEFAULT_SETTINGS) as (keyof SettingsState)[];
+      const entries = await Promise.all(
+        keys.map(async (key) => [key, await store.get(key)] as const),
+      );
       if (canceled) return;
-      setSettings((prev) => ({
-        fontSize: fontSize ?? prev.fontSize,
-        fontFamily: fontFamily ?? prev.fontFamily,
-      }));
+
+      setSettings((prev) => {
+        const next = { ...prev };
+        for (const [key, value] of entries) {
+          if (value !== undefined) {
+            assignSetting(next, key, value as SettingsState[typeof key]);
+          }
+        }
+        return next;
+      });
       setIsLoaded(true);
     })();
     return () => {
