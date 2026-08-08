@@ -6,6 +6,8 @@ import { SettingKey } from "../types";
 interface SettingsContextValue {
   fontSize: number;
   fontFamily: string;
+  compilerPath: string;
+  compilerArgs: string;
   onSettingChange: (key: SettingKey, value: number | string) => void;
   error: string | null;
   setError: (

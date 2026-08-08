@@ -6,9 +6,16 @@ export default function ConsoleLogs() {
   const { logs, clearLogs } = useConsoleLogsContext();
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     if (isNearBottom) {
       el.scrollTop = el.scrollHeight;

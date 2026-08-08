@@ -25,6 +25,21 @@ const FONT_OPTIONS = [
   },
 ];
 
+const COMPILER_ARGS_OPTIONS = [
+  {
+    label: "Legacy (C++98)",
+    value: "-std=c++98 -O2",
+  },
+  {
+    label: "Standard (C++14)",
+    value: "-std=c++14 -O2",
+  },
+  {
+    label: "Modern (C++20)",
+    value: "-std=c++20 -O2",
+  },
+];
+
 function useCommittedSetting<T extends number | string>(
   key: SettingKey,
   currentValue: T,
@@ -58,7 +73,7 @@ const parseFontSize = (raw: string): number | null => {
 };
 const clampFontSize = (n: number) => Math.min(32, Math.max(8, Math.round(n)));
 
-const parseFontFamily = (raw: string): string | null => {
+const parseString = (raw: string): string | null => {
   const trimmed = raw.trim();
   return trimmed === "" ? null : trimmed;
 };
@@ -100,8 +115,15 @@ function SettingField({
 }
 
 export default function Settings() {
-  const { fontSize, fontFamily, onSettingChange, error, setError } =
-    useSettingsContext();
+  const {
+    fontSize,
+    fontFamily,
+    compilerPath,
+    compilerArgs,
+    onSettingChange,
+    error,
+    setError,
+  } = useSettingsContext();
 
   const fontSizeField = useCommittedSetting(
     "fontSize",
@@ -115,7 +137,21 @@ export default function Settings() {
     "fontFamily",
     fontFamily,
     onSettingChange,
-    parseFontFamily,
+    parseString,
+  );
+
+  const compilerPathField = useCommittedSetting(
+    "compilerPath",
+    compilerPath,
+    onSettingChange,
+    parseString,
+  );
+
+  const compilerArgsField = useCommittedSetting(
+    "compilerArgs",
+    compilerArgs,
+    onSettingChange,
+    parseString,
   );
 
   return (
@@ -156,6 +192,40 @@ export default function Settings() {
                   key={opt.label}
                   type="button"
                   onClick={() => fontFamilyField.commit(opt.value)}
+                  className="px-2 py-1 text-[11px] rounded border border-(--border) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent)"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </SettingField>
+        </Section>
+
+        <Section title="Compiler">
+          <SettingField
+            label="Compiler path"
+            field={compilerPathField}
+            inputProps={{
+              type: "text",
+              autoComplete: "off",
+              placeholder: "g++",
+            }}
+          />
+          <SettingField
+            label="Compiler args"
+            field={compilerArgsField}
+            inputProps={{
+              type: "text",
+              autoComplete: "off",
+              placeholder: "-O2",
+            }}
+          >
+            <div className="flex gap-1.5 mt-1.5">
+              {COMPILER_ARGS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => compilerArgsField.commit(opt.value)}
                   className="px-2 py-1 text-[11px] rounded border border-(--border) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent)"
                 >
                   {opt.label}

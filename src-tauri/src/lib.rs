@@ -8,6 +8,7 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_store::StoreExt;
 use tokio::fs;
 
 use crate::runner::prep_executable;
@@ -63,7 +64,7 @@ fn read_workspace_file(path: String) -> Result<WorkspaceFilePayload, String> {
 }
 
 #[tauri::command(async)]
-fn pick_workspace_file(app: tauri::AppHandle) -> Result<Option<WorkspaceFilePayload>, String> {
+fn pick_workspace_file(app: AppHandle) -> Result<Option<WorkspaceFilePayload>, String> {
     match app.dialog().file().blocking_pick_file() {
         Some(file_path) => {
             let path = file_path
@@ -76,7 +77,7 @@ fn pick_workspace_file(app: tauri::AppHandle) -> Result<Option<WorkspaceFilePayl
 }
 
 #[tauri::command(async)]
-fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+fn pick_directory(app: AppHandle) -> Result<Option<String>, String> {
     match app.dialog().file().blocking_pick_folder() {
         Some(file_path) => {
             let path = file_path
@@ -126,8 +127,19 @@ async fn generate_tests(
         "prep_executable",
         "Preparing run command for provided files",
     );
-    let gen_command = prep_executable(&gen_path).await?;
-    let sol_command = prep_executable(&sol_path).await?;
+
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let compiler_path = store
+        .get("compilerPath")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    let compiler_args = store
+        .get("compilerArgs")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+
+    let gen_command = prep_executable(&gen_path, &compiler_path, &compiler_args).await?;
+    let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
     for i in 1..=test_count {
         let idx_str = i.to_string();
@@ -179,7 +191,18 @@ async fn generate_tests_from_schema(
     };
 
     send_status("prep_executable", "Preparing run command for solution file");
-    let sol_command = prep_executable(&sol_path).await?;
+
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let compiler_path = store
+        .get("compilerPath")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+    let compiler_args = store
+        .get("compilerArgs")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_default();
+
+    let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
     for i in 1..=test_count {
         send_status(

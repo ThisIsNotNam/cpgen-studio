@@ -5,12 +5,16 @@ import type { SettingKey } from "../types";
 interface SettingsState {
   fontSize: number;
   fontFamily: string;
+  compilerPath: string;
+  compilerArgs: string;
 }
 
 const DEFAULT_SETTINGS: SettingsState = {
   fontSize: 13,
   fontFamily:
     '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+  compilerPath: "g++",
+  compilerArgs: "-std=c++14 -O2",
 };
 
 function assignSetting<K extends keyof SettingsState>(

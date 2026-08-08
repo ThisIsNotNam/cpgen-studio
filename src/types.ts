@@ -13,7 +13,8 @@ export interface WorkspaceFilePayload {
   value: string;
 }
 
-export type SettingKey = "fontSize" | "fontFamily";
+export type SettingKey =
+  "fontSize" | "fontFamily" | "compilerPath" | "compilerArgs";
 
 export type WorkspaceSlot = "generator" | "solution";
 

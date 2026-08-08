@@ -3,15 +3,21 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::{fs, io::AsyncWriteExt, process::Command, time::timeout};
 
-pub fn clean_path(path: &Path) -> String {
-    let path_str = path.to_str().unwrap();
-    path_str
+pub fn clean_path(path: &Path) -> Result<String, String> {
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| "Unable to parse path".to_string())?;
+    Ok(path_str
         .strip_prefix(r"\\?\")
         .unwrap_or(path_str)
-        .to_string()
+        .to_string())
 }
 
-pub async fn prep_executable(source: &Path) -> Result<(String, Vec<String>), String> {
+pub async fn prep_executable(
+    source: &Path,
+    compiler_path: &str,
+    compiler_args: &str,
+) -> Result<(String, Vec<String>), String> {
     match source.extension().and_then(|s| s.to_str()) {
         Some("py") => {
             let python = if cfg!(target_os = "windows") {
@@ -19,7 +25,7 @@ pub async fn prep_executable(source: &Path) -> Result<(String, Vec<String>), Str
             } else {
                 "python3"
             };
-            Ok((python.to_string(), vec![clean_path(source)]))
+            Ok((python.to_string(), vec![clean_path(source)?]))
         }
         Some("cpp") => {
             let parent = source
@@ -37,19 +43,27 @@ pub async fn prep_executable(source: &Path) -> Result<(String, Vec<String>), Str
 
             let exe = build_dir.join(file_stem).with_extension("exe");
 
-            let output = Command::new("g++")
+            let compiler = if compiler_path.trim().is_empty() {
+                "g++"
+            } else {
+                compiler_path
+            };
+
+            let flags = shell_words::split(compiler_args).map_err(|e| e.to_string())?;
+
+            let output = Command::new(compiler)
+                .args(&flags)
                 .args([
-                    "-O3",
-                    clean_path(source).as_str(),
+                    clean_path(source)?.as_str(),
                     "-o",
-                    clean_path(&exe).as_str(),
+                    clean_path(&exe)?.as_str(),
                 ])
                 .output()
                 .await
                 .map_err(|e| format!("Failed to execute g++ compiler: {e}"))?;
 
             if output.status.success() {
-                Ok((clean_path(&exe), vec![]))
+                Ok((clean_path(&exe)?, vec![]))
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 Err(format!("Compilation failed:\n{stderr}"))
