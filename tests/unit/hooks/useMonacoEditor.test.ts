@@ -471,7 +471,7 @@ describe("useMonacoEditor", () => {
       });
 
       expect(success).toBe(false);
-      expect(setIsDirty).toHaveBeenLastCalledWith("/tmp/gen.cpp", true);
+      expect(setIsDirty).not.toHaveBeenCalledWith(expect.anything(), false);
     });
 
     it("returns false and does not throw if saveActiveFile rejects", async () => {

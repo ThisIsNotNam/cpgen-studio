@@ -89,11 +89,14 @@ describe("usePipelineRunner", () => {
       ),
     );
 
-    await expect(
-      result.current.previewSchema([
+    let preview: string | undefined;
+    await act(async () => {
+      preview = await result.current.previewSchema([
         { id: "n", kind: "int", varName: "x", min: "1", max: "10" },
-      ]),
-    ).resolves.toBe("preview-output");
+      ]);
+    });
+
+    expect(preview).toBe("preview-output");
     expect(mockedInvoke).toHaveBeenCalledWith("preview_schema", {
       schema: expect.any(Array),
       seed: null,
