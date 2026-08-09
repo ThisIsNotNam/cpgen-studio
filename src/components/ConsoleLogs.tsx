@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
 import ConsoleLogLine from "./ConsoleLogLine";
 
+let lastScrollTop = 0;
+
 export default function ConsoleLogs() {
   const { logs, clearLogs } = useConsoleLogsContext();
 
@@ -13,7 +15,7 @@ export default function ConsoleLogs() {
     if (!el) return;
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = lastScrollTop;
       return;
     }
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
@@ -21,6 +23,16 @@ export default function ConsoleLogs() {
       el.scrollTop = el.scrollHeight;
     }
   }, [logs]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      lastScrollTop = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <section
