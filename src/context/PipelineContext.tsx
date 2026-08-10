@@ -35,6 +35,7 @@ export function PipelineProvider({ children }: { children: ReactNode }) {
     }
     return {
       batches: 20,
+      startIndex: 0,
       problemName: "test",
       indexDelivery: "stdin",
     };

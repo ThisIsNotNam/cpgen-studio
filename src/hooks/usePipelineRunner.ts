@@ -88,6 +88,7 @@ export function usePipelineRunner(
           outputPath: outputPath,
           testName: config.problemName,
           testCount: config.batches,
+          startId: config.startIndex,
           seed: null,
         });
       } else {
@@ -97,6 +98,7 @@ export function usePipelineRunner(
           outputPath: outputPath,
           testName: config.problemName,
           testCount: config.batches,
+          startId: config.startIndex,
           indexAsArg: config.indexDelivery === "argv[1]",
         });
       }

@@ -102,7 +102,7 @@ struct StatusPayload {
     step: String,
     message: String,
 }
-
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn generate_tests(
     app: AppHandle,
@@ -111,6 +111,7 @@ async fn generate_tests(
     output_path: PathBuf,
     test_name: String,
     test_count: i32,
+    start_id: i32,
     index_as_arg: bool,
 ) -> Result<(), String> {
     let send_status = |step: &str, message: &str| {
@@ -141,9 +142,12 @@ async fn generate_tests(
     let gen_command = prep_executable(&gen_path, &compiler_path, &compiler_args).await?;
     let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
-    for i in 1..=test_count {
-        let idx_str = i.to_string();
-        send_status("run_executable", format!("Generating test #{i}").as_str());
+    for i in 0..test_count {
+        let idx_str = (i + start_id).to_string();
+        send_status(
+            "run_executable",
+            format!("Generating test #{}", i + start_id).as_str(),
+        );
         let test = if index_as_arg {
             let mut gen_command_with_idx = gen_command.clone();
             gen_command_with_idx.1.push(idx_str);
@@ -152,7 +156,7 @@ async fn generate_tests(
             runner::run(&gen_command, Duration::from_secs(10), Some(&idx_str)).await?
         };
         let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
-        let test_path = output_path.join(format!("{test_name}{i}"));
+        let test_path = output_path.join(format!("{test_name}{}", i + start_id));
         fs::create_dir_all(&test_path)
             .await
             .map_err(|e| format!("Unable to create test output directory: {e}"))?;
@@ -170,6 +174,7 @@ async fn generate_tests(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn generate_tests_from_schema(
     app: AppHandle,
@@ -178,6 +183,7 @@ async fn generate_tests_from_schema(
     output_path: PathBuf,
     test_name: String,
     test_count: i32,
+    start_id: i32,
     seed: Option<u64>,
 ) -> Result<(), String> {
     let send_status = |step: &str, message: &str| {
@@ -204,17 +210,17 @@ async fn generate_tests_from_schema(
 
     let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
-    for i in 1..=test_count {
+    for i in 0..test_count {
         send_status(
             "generate_input",
-            format!("Generating test #{i} from schema").as_str(),
+            format!("Generating test #{} from schema", i + start_id).as_str(),
         );
         let test_seed = seed.map(|s| s.wrapping_add(i as u64));
         let test = schema::generate(&schema, test_seed)
             .map_err(|e| format!("Schema interpretation failed: {e}"))?;
         let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
 
-        let test_path = output_path.join(format!("{test_name}{i}"));
+        let test_path = output_path.join(format!("{test_name}{}", i + start_id));
         fs::create_dir_all(&test_path)
             .await
             .map_err(|e| format!("Unable to create test output directory: {e}"))?;

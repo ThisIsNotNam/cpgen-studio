@@ -1,6 +1,6 @@
 # Roadmap
 
-CPGen Studio is currently in alpha (`0.2.0-alpha.1`). This document tracks the features planned for the `1.0` release.
+CPGen Studio is currently in alpha (`0.2.1-alpha.1`). This document tracks the features planned for the `1.0` release.
 
 ## Milestone: 1.0
 
@@ -13,7 +13,7 @@ All other items below are being implemented in the lead-up to `1.0`.
 ## Generation & Schema
 
 - [x] **Problem name field**: expose the problem name field already supported by the generation backend (currently hardcoded on the frontend)
-- [ ] **Starting index for test generation**: configurable starting index instead of a fixed default
+- [x] **Starting index for test generation**: configurable starting index instead of a fixed default
 - [ ] **Optional solution file**: support generating tests only, without requiring a solution file
 - [ ] **Per-block separator field**: configurable separator between block outputs (currently hardcoded to newline)
 - [ ] **Field output expressions**: allow a field's output to be a derived expression (e.g. output `2*Q` instead of the raw generated value)

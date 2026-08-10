@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { usePipelineContext } from "../context/PipelineContext";
 import { useWorkspaceContext } from "../context/WorkspaceContext";
 import Section from "./Section";
@@ -42,6 +43,67 @@ function IndexOption({
     </>
   );
 }
+
+function PrefixedNumberInput({
+  prefix,
+  value,
+  onChange,
+  fallback,
+  min,
+  max,
+  title,
+}: {
+  prefix: string;
+  value: number;
+  onChange: (value: number) => void;
+  fallback: number;
+  min?: number;
+  max?: number;
+  title: string;
+}) {
+  const [prevValue, setPrevValue] = useState(value);
+  const [inputValue, setInputValue] = useState(String(value));
+
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setInputValue(String(value));
+  }
+
+  const commit = () => {
+    const trimmed = inputValue.trim();
+    const parsed = trimmed === "" ? NaN : Number(trimmed);
+    let next = Number.isFinite(parsed) ? parsed : fallback;
+    if (min !== undefined) next = Math.max(min, next);
+    if (max !== undefined) next = Math.min(max, next);
+
+    setInputValue(String(next));
+    if (next !== value) onChange(next);
+  };
+
+  return (
+    <div
+      className="flex-1 min-w-0 flex items-center bg-(--bg-input) border border-(--border) rounded overflow-hidden focus-within:border-(--accent) focus-within:ring-2 focus-within:ring-[rgba(59,130,246,0.15)]"
+      title={title}
+    >
+      <span className="pl-2.5 text-(--text-muted) text-[13px] select-none">
+        {prefix}
+      </span>
+      <input
+        type="number"
+        className="w-full h-8 pl-1 pr-2.5 bg-transparent text-(--text-primary) text-[13px] outline-none"
+        value={inputValue}
+        min={min}
+        max={max}
+        onChange={(event) => setInputValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+    </div>
+  );
+}
+
 export default function ParametersForm() {
   const { config, onConfigChange } = usePipelineContext();
   const { generatorMode } = useWorkspaceContext();
@@ -50,16 +112,23 @@ export default function ParametersForm() {
     <Section title="Parameters">
       <div className={ROW_CLASS}>
         <label className={LABEL_CLASS}>Batches</label>
-        <div className="flex-1 min-w-0">
-          <input
-            type="number"
-            className={INPUT_CLASS}
+        <div className="flex-1 min-w-0 flex gap-2">
+          <PrefixedNumberInput
+            prefix="#"
+            title="Starting index"
+            value={config.startIndex}
+            fallback={1}
+            min={0}
+            onChange={(value) => onConfigChange("startIndex", value)}
+          />
+          <PrefixedNumberInput
+            prefix="×"
+            title="Batch count"
             value={config.batches}
+            fallback={1}
             min={1}
             max={100}
-            onChange={(event) =>
-              onConfigChange("batches", Number(event.target.value) || 1)
-            }
+            onChange={(value) => onConfigChange("batches", value)}
           />
         </div>
       </div>
