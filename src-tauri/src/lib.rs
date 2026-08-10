@@ -9,6 +9,7 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
+use tauri_plugin_window_state::StateFlags;
 use tokio::fs;
 
 use crate::runner::prep_executable;
@@ -249,7 +250,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() ^ StateFlags::DECORATIONS)
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             read_workspace_file,

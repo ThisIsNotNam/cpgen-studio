@@ -1,4 +1,5 @@
 import CPGenStudio from "./components/CPGenStudio";
+import TitleBar from "./components/TittleBar";
 import { ConsoleLogsProvider } from "./context/ConsoleLogsContext";
 import { PipelineProvider } from "./context/PipelineContext";
 import { SettingsProvider } from "./context/SettingsContext";
@@ -6,7 +7,8 @@ import { WorkspaceProvider } from "./context/WorkspaceContext";
 
 function App() {
   return (
-    <div className="w-full h-full min-h-0 antialiased">
+    <div className="w-screen h-screen grid grid-rows-[auto_1fr] overflow-hidden antialiased">
+      <TitleBar />
       <ConsoleLogsProvider>
         <WorkspaceProvider>
           <PipelineProvider>
