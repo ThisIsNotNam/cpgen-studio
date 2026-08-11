@@ -1,5 +1,6 @@
 import {
   DndContext,
+  DragOverlay,
   DragStartEvent,
   PointerSensor,
   pointerWithin,
@@ -22,6 +23,8 @@ import {
   updateLoopChildren,
   updateNodeRecursive,
 } from "../../utils/schemaTree";
+
+import NodeCardPreview from "./NodeCardPreview";
 
 import NodeCard from "./NodeCard";
 import SchemaToolbar from "./SchemaToolbar";
@@ -52,7 +55,10 @@ export default function VisualSchemaBuilder() {
     null,
   );
 
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   const handleDragStart = ({ active }: DragStartEvent) => {
+    setActiveId(String(active.id));
     const parent = findParentList(nodes, String(active.id));
     setActiveParentIds(parent ? new Set(parent.map((n) => n.id)) : null);
   };
@@ -112,12 +118,15 @@ export default function VisualSchemaBuilder() {
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
     if (over && active.id !== over.id) {
       setNodes((prev) =>
         moveNodeInTree(prev, active.id as string, over.id as string),
       );
     }
   };
+
+  const activeNode = activeId ? findNodeRecursive(nodes, activeId) : null;
 
   return (
     <div className="space-y-3" onClick={() => setSelectedId(null)}>
@@ -133,6 +142,7 @@ export default function VisualSchemaBuilder() {
         collisionDetection={sameContainerCollision}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
       >
         <SortableContext
           items={nodes.map((n) => n.id)}
@@ -159,6 +169,9 @@ export default function VisualSchemaBuilder() {
             ))}
           </div>
         </SortableContext>
+        <DragOverlay>
+          {activeNode ? <NodeCardPreview node={activeNode} /> : null}
+        </DragOverlay>
       </DndContext>
 
       <SchemaToolbar
