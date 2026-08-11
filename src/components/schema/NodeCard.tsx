@@ -1,10 +1,10 @@
-import { useState } from "react";
 import {
-  useSortable,
   SortableContext,
+  useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { memo, useState } from "react";
 import type { SchemaNode } from "../../types";
 import NodeFields from "./NodeFields";
 
@@ -16,7 +16,7 @@ interface NodeCardProps {
   onRemove: (id: string) => void;
 }
 
-export default function NodeCard({
+function NodeCard({
   node,
   selectedId,
   onSelect,
@@ -160,3 +160,5 @@ export default function NodeCard({
     </div>
   );
 }
+
+export default memo(NodeCard);

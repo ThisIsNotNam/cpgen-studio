@@ -13,6 +13,16 @@ pub fn clean_path(path: &Path) -> Result<String, String> {
         .to_string())
 }
 
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn new_command(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
 pub async fn prep_executable(
     source: &Path,
     compiler_path: &str,
@@ -51,7 +61,7 @@ pub async fn prep_executable(
 
             let flags = shell_words::split(compiler_args).map_err(|e| e.to_string())?;
 
-            let output = Command::new(compiler)
+            let output = new_command(compiler)
                 .args(&flags)
                 .args([
                     clean_path(source)?.as_str(),
@@ -81,7 +91,7 @@ pub async fn run(
 ) -> Result<String, String> {
     let (program, args) = command;
 
-    let mut child = Command::new(program)
+    let mut child = new_command(program)
         .args(args)
         .kill_on_drop(true)
         .stdin(if stdin.is_some() {
