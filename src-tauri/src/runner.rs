@@ -16,6 +16,7 @@ pub fn clean_path(path: &Path) -> Result<String, String> {
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
 fn new_command(program: &str) -> Command {
     let mut cmd = Command::new(program);
     #[cfg(target_os = "windows")]
