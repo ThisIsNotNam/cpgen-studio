@@ -22,7 +22,12 @@ export default function EditorCanvas() {
         defaultLayout={defaultLayout}
         onLayoutChanged={onLayoutChanged}
       >
-        <Panel defaultSize="340px" minSize="280px" maxSize="1024px">
+        <Panel
+          defaultSize="340px"
+          minSize="280px"
+          maxSize="640px"
+          groupResizeBehavior="preserve-pixel-size"
+        >
           <FilesPanel />
         </Panel>
 

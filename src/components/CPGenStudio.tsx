@@ -48,6 +48,7 @@ export default function CPGenStudio() {
               defaultSize="220px"
               minSize="140px"
               maxSize="480px"
+              groupResizeBehavior="preserve-pixel-size"
               className="h-full border-t border-(--border)"
             >
               <ConsoleLogs />
