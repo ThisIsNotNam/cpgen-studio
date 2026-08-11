@@ -62,7 +62,18 @@ pub async fn prep_executable(
 
             let flags = shell_words::split(compiler_args).map_err(|e| e.to_string())?;
 
-            let output = new_command(compiler)
+            let mut cmd = {
+                #[cfg(target_os = "windows")]
+                {
+                    new_command(compiler)
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    Command::new(compiler)
+                }
+            };
+
+            let output = cmd
                 .args(&flags)
                 .args([
                     clean_path(source)?.as_str(),
@@ -92,7 +103,18 @@ pub async fn run(
 ) -> Result<String, String> {
     let (program, args) = command;
 
-    let mut child = new_command(program)
+    let mut cmd = {
+        #[cfg(target_os = "windows")]
+        {
+            new_command(program)
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new(program)
+        }
+    };
+
+    let mut child = cmd
         .args(args)
         .kill_on_drop(true)
         .stdin(if stdin.is_some() {
