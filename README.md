@@ -39,4 +39,5 @@ Thank you for the help!
 
 ## License
 
-TBD.
+PolyForm Noncommercial License 1.0.0  
+check [LICENSE](./LICENSE) for more details.
