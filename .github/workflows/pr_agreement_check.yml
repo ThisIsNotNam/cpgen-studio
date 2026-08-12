@@ -1,0 +1,22 @@
+name: PR Agreement Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-agreement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify CONTRIBUTING.md checkbox is ticked
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const pattern = /-\s*\[x\]\s*I have read and agree to \[CONTRIBUTING\.md\]/i;
+
+            if (!pattern.test(body)) {
+              core.setFailed(
+                "You must tick the box confirming you have read and agree to CONTRIBUTING.md before this PR can be merged."
+              );
+            }
