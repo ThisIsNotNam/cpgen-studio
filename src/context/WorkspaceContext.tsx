@@ -38,6 +38,7 @@ interface WorkspaceFilesContextValue {
   handleCodeChange: (path: string, newValue: string) => void;
   saveActiveFile: () => Promise<boolean>;
   setIsDirty: (path: string, isDirty: boolean) => void;
+  handleSaveSchema: () => void;
 }
 
 const WorkspaceFilesContext = createContext<WorkspaceFilesContextValue | null>(

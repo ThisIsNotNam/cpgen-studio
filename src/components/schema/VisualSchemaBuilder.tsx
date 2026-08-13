@@ -43,7 +43,7 @@ function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
 }
 
 export default function VisualSchemaBuilder() {
-  const { nodes, setNodes } = useWorkspaceContext();
+  const { nodes, setNodes, handleSaveSchema } = useWorkspaceContext();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -132,9 +132,13 @@ export default function VisualSchemaBuilder() {
     <div className="space-y-3" onClick={() => setSelectedId(null)}>
       <div className="flex items-center justify-between text-(--text-muted) font-bold text-[11px] uppercase tracking-wider">
         <span>Test Structure</span>
-        <span className="text-[10px] font-normal text-(--text-muted)">
-          Click block to select container
-        </span>
+        <button
+          type="button"
+          onClick={handleSaveSchema}
+          className="font-normal h-7 px-3 rounded-sm border cursor-pointer inline-flex items-center gap-1.5 text-[13px] bg-(--accent) border-(--accent) text-white hover:bg-(--accent-hover)"
+        >
+          Save
+        </button>
       </div>
 
       <DndContext

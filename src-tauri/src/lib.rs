@@ -52,11 +52,9 @@ fn build_workspace_file(path: PathBuf) -> Result<WorkspaceFilePayload, String> {
     })
 }
 
-#[tauri::command]
-async fn save_workspace_file(path: String, content: String) -> Result<(), String> {
-    fs::write(&path, content)
-        .await
-        .map_err(|error| format!("failed to save {path}: {error}"))
+#[tauri::command(async)]
+fn save_workspace_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|error| format!("failed to save {path}: {error}"))
 }
 
 #[tauri::command(async)]
@@ -72,6 +70,27 @@ fn pick_workspace_file(app: AppHandle) -> Result<Option<WorkspaceFilePayload>, S
                 .into_path()
                 .map_err(|error| format!("failed to resolve selected file: {}", error))?;
             build_workspace_file(path).map(Some)
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command(async)]
+fn save_file(app: AppHandle, contents: String) -> Result<Option<PathBuf>, String> {
+    match app
+        .dialog()
+        .file()
+        .set_file_name("schema.json")
+        .add_filter("json", &["json"])
+        .blocking_save_file()
+    {
+        Some(file_path) => {
+            let path = file_path
+                .into_path()
+                .map_err(|error| format!("failed to save file: {}", error))?;
+            std::fs::write(&path, contents)
+                .map_err(|error| format!("failed to save file: {}", error))?;
+            Ok(Some(path))
         }
         None => Ok(None),
     }
@@ -264,7 +283,8 @@ pub fn run() {
             generate_tests,
             generate_tests_from_schema,
             preview_schema,
-            save_workspace_file
+            save_workspace_file,
+            save_file
         ])
         .setup(|app| {
             let version = app.package_info().version.to_string();

@@ -282,6 +282,17 @@ export function useWorkspaceFiles(
     }
   };
 
+  const handleSaveSchema = async () => {
+    try {
+      const path = await invoke("save_file", {
+        contents: JSON.stringify(nodes, null, 2),
+      });
+      if (path) appendLog("info", `Saved schema to ${path}`);
+    } catch (error) {
+      appendLog("error", `Failed to save schema: ${String(error)}`);
+    }
+  };
+
   return {
     generatorFile,
     solutionFile,
@@ -305,5 +316,6 @@ export function useWorkspaceFiles(
     handleCodeChange,
     saveActiveFile,
     setIsDirty,
+    handleSaveSchema,
   };
 }
