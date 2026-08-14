@@ -21,6 +21,11 @@ interface StoredWorkspaceState {
   activeFileSlot: WorkspaceSlot | null;
 }
 
+interface SchemaLoadPayload {
+  path: string;
+  contents: string;
+}
+
 const buildWorkspaceFile = (payload: WorkspaceFilePayload): WorkspaceFile => ({
   path: payload.path,
   name: payload.name,
@@ -293,6 +298,23 @@ export function useWorkspaceFiles(
     }
   };
 
+  const handleLoadSchema = async () => {
+    try {
+      const payload = await invoke<SchemaLoadPayload | null>("load_schema_file");
+      if (!payload) return;
+
+      const parsed = JSON.parse(payload.contents) as unknown;
+      if (!Array.isArray(parsed)) {
+        throw new Error("Invalid schema format: expected a top-level array");
+      }
+
+      setNodes(parsed as SchemaNode[]);
+      appendLog("info", `Loaded schema from ${payload.path}`);
+    } catch (error) {
+      appendLog("error", `Failed to load schema: ${String(error)}`);
+    }
+  };
+
   return {
     generatorFile,
     solutionFile,
@@ -317,5 +339,6 @@ export function useWorkspaceFiles(
     saveActiveFile,
     setIsDirty,
     handleSaveSchema,
+    handleLoadSchema,
   };
 }

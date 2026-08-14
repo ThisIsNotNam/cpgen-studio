@@ -22,6 +22,12 @@ struct WorkspaceFilePayload {
     value: String,
 }
 
+#[derive(Serialize)]
+struct SchemaLoadPayload {
+    path: String,
+    contents: String,
+}
+
 fn infer_language(path: &Path) -> String {
     match path.extension().and_then(|extension| extension.to_str()) {
         Some("py") => "python",
@@ -91,6 +97,29 @@ fn save_file(app: AppHandle, contents: String) -> Result<Option<PathBuf>, String
             std::fs::write(&path, contents)
                 .map_err(|error| format!("failed to save file: {}", error))?;
             Ok(Some(path))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command(async)]
+fn load_schema_file(app: AppHandle) -> Result<Option<SchemaLoadPayload>, String> {
+    match app
+        .dialog()
+        .file()
+        .add_filter("json", &["json"])
+        .blocking_pick_file()
+    {
+        Some(file_path) => {
+            let path = file_path
+                .into_path()
+                .map_err(|error| format!("failed to resolve selected file: {}", error))?;
+            let contents = std::fs::read_to_string(&path)
+                .map_err(|error| format!("failed to read {}: {}", path.display(), error))?;
+            Ok(Some(SchemaLoadPayload {
+                path: path.display().to_string(),
+                contents,
+            }))
         }
         None => Ok(None),
     }
@@ -284,7 +313,8 @@ pub fn run() {
             generate_tests_from_schema,
             preview_schema,
             save_workspace_file,
-            save_file
+            save_file,
+            load_schema_file
         ])
         .setup(|app| {
             let version = app.package_info().version.to_string();

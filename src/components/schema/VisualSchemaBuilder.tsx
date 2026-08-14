@@ -13,6 +13,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { useCallback, useState } from "react";
 
 import type { FieldKind, SchemaNode } from "../../types";
@@ -43,7 +44,8 @@ function findParentList(list: SchemaNode[], id: string): SchemaNode[] | null {
 }
 
 export default function VisualSchemaBuilder() {
-  const { nodes, setNodes, handleSaveSchema } = useWorkspaceContext();
+  const { nodes, setNodes, handleSaveSchema, handleLoadSchema } =
+    useWorkspaceContext();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -128,17 +130,38 @@ export default function VisualSchemaBuilder() {
 
   const activeNode = activeId ? findNodeRecursive(nodes, activeId) : null;
 
+  const handleSchemaLoadClick = async () => {
+    const shouldLoad = await confirm(
+      "Loading a schema will replace all current work in the visual builder. Continue?",
+      {
+        title: "Load schema",
+        kind: "warning",
+      },
+    );
+    if (!shouldLoad) return;
+    void handleLoadSchema();
+  };
+
   return (
     <div className="space-y-3" onClick={() => setSelectedId(null)}>
       <div className="flex items-center justify-between text-(--text-muted) font-bold text-[11px] uppercase tracking-wider">
         <span>Test Structure</span>
-        <button
-          type="button"
-          onClick={handleSaveSchema}
-          className="font-normal h-7 px-3 rounded-sm border cursor-pointer inline-flex items-center gap-1.5 text-[13px] bg-(--accent) border-(--accent) text-white hover:bg-(--accent-hover)"
-        >
-          Save
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleSchemaLoadClick()}
+            className="font-normal h-7 px-3 rounded-sm border cursor-pointer inline-flex items-center gap-1.5 text-[13px] border-(--border) text-(--text-primary) hover:bg-(--bg-tertiary)"
+          >
+            Load
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSaveSchema()}
+            className="font-normal h-7 px-3 rounded-sm border cursor-pointer inline-flex items-center gap-1.5 text-[13px] bg-(--accent) border-(--accent) text-white hover:bg-(--accent-hover)"
+          >
+            Save
+          </button>
+        </div>
       </div>
 
       <DndContext
