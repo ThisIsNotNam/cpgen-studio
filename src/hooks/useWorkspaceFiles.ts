@@ -300,7 +300,9 @@ export function useWorkspaceFiles(
 
   const handleLoadSchema = async () => {
     try {
-      const payload = await invoke<SchemaLoadPayload | null>("load_schema_file");
+      const payload = await invoke<SchemaLoadPayload | null>(
+        "load_schema_file",
+      );
       if (!payload) return;
 
       const parsed = JSON.parse(payload.contents) as unknown;
