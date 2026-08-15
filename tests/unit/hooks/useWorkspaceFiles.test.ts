@@ -209,14 +209,20 @@ describe("useWorkspaceFiles", () => {
 
     it("returns false and logs an error when the save invoke rejects", async () => {
       const appendLog = vi.fn();
-      mockedInvoke
-        .mockResolvedValueOnce({
-          path: "/tmp/gen.cpp",
-          name: "gen.cpp",
-          language: "cpp",
-          value: "int main() {}",
-        })
-        .mockRejectedValueOnce(new Error("disk full"));
+      mockedInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "read_workspace_file") {
+          return Promise.resolve({
+            path: "/tmp/gen.cpp",
+            name: "gen.cpp",
+            language: "cpp",
+            value: "int main() {}",
+          });
+        }
+        if (cmd === "save_workspace_file") {
+          return Promise.reject(new Error("disk full"));
+        }
+        return Promise.resolve(undefined); // watch_file
+      });
 
       const { result } = renderHook(() => useWorkspaceFiles(appendLog));
 
@@ -441,5 +447,209 @@ describe("out-of-order responses", () => {
     });
 
     expect(result.current.generatorFile).toBeNull();
+  });
+
+  describe("file watching", () => {
+    beforeEach(() => {
+      mockedInvoke.mockReset();
+      localStorage.clear();
+    });
+
+    function emitFileChanged(path: string) {
+      (
+        globalThis as unknown as {
+          __emitTauriEvent: (event: string, payload: unknown) => void;
+        }
+      ).__emitTauriEvent("file-changed", path);
+    }
+
+    it("calls watch_file when a slot's path is set", async () => {
+      const appendLog = vi.fn();
+      mockedInvoke.mockResolvedValueOnce({
+        path: "/tmp/gen.cpp",
+        name: "gen.cpp",
+        language: "cpp",
+        value: "int main() {}",
+      });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+      });
+
+      expect(mockedInvoke).toHaveBeenCalledWith("watch_file", {
+        path: "/tmp/gen.cpp",
+      });
+    });
+
+    it("does not unwatch a path still in use by the other slot", async () => {
+      const appendLog = vi.fn();
+      mockedInvoke
+        .mockResolvedValueOnce({
+          path: "/tmp/shared.cpp",
+          name: "shared.cpp",
+          language: "cpp",
+          value: "shared",
+        })
+        .mockResolvedValueOnce({
+          path: "/tmp/shared.cpp",
+          name: "shared.cpp",
+          language: "cpp",
+          value: "shared",
+        })
+        .mockResolvedValueOnce({
+          path: "/tmp/other.cpp",
+          name: "other.cpp",
+          language: "cpp",
+          value: "other",
+        });
+
+      const { result, rerender } = renderHook(() =>
+        useWorkspaceFiles(appendLog),
+      );
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/shared.cpp");
+        await result.current.loadWorkspaceFile("solution", "/tmp/shared.cpp");
+      });
+      mockedInvoke.mockClear();
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/other.cpp");
+      });
+      rerender();
+
+      expect(mockedInvoke).not.toHaveBeenCalledWith("unwatch_file", {
+        path: "/tmp/shared.cpp",
+      });
+    });
+
+    it("reloads a slot whose file changed on disk", async () => {
+      const appendLog = vi.fn();
+      const file = {
+        path: "/tmp/gen.cpp",
+        name: "gen.cpp",
+        language: "cpp",
+        value: "old content",
+      };
+      mockedInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "read_workspace_file") return Promise.resolve(file);
+        return Promise.resolve(undefined); // watch_file / unwatch_file
+      });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+      });
+
+      file.value = "new content";
+
+      await act(async () => {
+        emitFileChanged("/tmp/gen.cpp");
+        await Promise.resolve();
+      });
+
+      expect(mockedInvoke).toHaveBeenCalledWith("read_workspace_file", {
+        path: "/tmp/gen.cpp",
+      });
+      expect(result.current.generatorFile?.value).toBe("new content");
+    });
+
+    it("reloads both slots when they share the same changed path", async () => {
+      const appendLog = vi.fn();
+      const file = {
+        path: "/tmp/shared.cpp",
+        name: "shared.cpp",
+        language: "cpp",
+        value: "old",
+      };
+      mockedInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "read_workspace_file") return Promise.resolve(file);
+        return Promise.resolve(undefined);
+      });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/shared.cpp");
+        await result.current.loadWorkspaceFile("solution", "/tmp/shared.cpp");
+      });
+
+      file.value = "updated";
+
+      await act(async () => {
+        emitFileChanged("/tmp/shared.cpp");
+        await Promise.resolve();
+      });
+
+      expect(result.current.generatorFile?.value).toBe("updated");
+      expect(result.current.solutionFile?.value).toBe("updated");
+    });
+
+    it("ignores changes to paths that are not open in either slot", async () => {
+      const appendLog = vi.fn();
+      mockedInvoke.mockResolvedValueOnce({
+        path: "/tmp/gen.cpp",
+        name: "gen.cpp",
+        language: "cpp",
+        value: "unchanged",
+      });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+      });
+      mockedInvoke.mockClear();
+
+      await act(async () => {
+        emitFileChanged("/tmp/unrelated.cpp");
+        await Promise.resolve();
+      });
+
+      expect(mockedInvoke).not.toHaveBeenCalledWith(
+        "read_workspace_file",
+        expect.anything(),
+      );
+      expect(result.current.generatorFile?.value).toBe("unchanged");
+    });
+
+    it("logs an error when reloading a changed file fails", async () => {
+      const appendLog = vi.fn();
+      let readShouldFail = false;
+      mockedInvoke.mockImplementation((cmd: string) => {
+        if (cmd === "read_workspace_file") {
+          return readShouldFail
+            ? Promise.reject(new Error("permission denied"))
+            : Promise.resolve({
+                path: "/tmp/gen.cpp",
+                name: "gen.cpp",
+                language: "cpp",
+                value: "content",
+              });
+        }
+        return Promise.resolve(undefined);
+      });
+
+      const { result } = renderHook(() => useWorkspaceFiles(appendLog));
+
+      await act(async () => {
+        await result.current.loadWorkspaceFile("generator", "/tmp/gen.cpp");
+      });
+
+      readShouldFail = true;
+
+      await act(async () => {
+        emitFileChanged("/tmp/gen.cpp");
+        await Promise.resolve();
+      });
+
+      expect(appendLog).toHaveBeenCalledWith(
+        "error",
+        expect.stringContaining("/tmp/gen.cpp"),
+      );
+    });
   });
 });

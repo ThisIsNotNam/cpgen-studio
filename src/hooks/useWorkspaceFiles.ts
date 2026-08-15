@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { inferLanguage } from "../utils/language";
 
@@ -316,6 +317,50 @@ export function useWorkspaceFiles(
       appendLog("error", `Failed to load schema: ${String(error)}`);
     }
   };
+
+  useEffect(() => {
+    const unlisten = listen<string>("file-changed", async (event) => {
+      const changedPath = event.payload;
+      const affectedSlots: WorkspaceSlot[] = [
+        ...(changedPath === generatorPath ? (["generator"] as const) : []),
+        ...(changedPath === solutionPath ? (["solution"] as const) : []),
+      ];
+      if (affectedSlots.length === 0) return;
+
+      try {
+        const payload = await invoke<WorkspaceFilePayload>(
+          "read_workspace_file",
+          {
+            path: changedPath,
+          },
+        );
+        affectedSlots.forEach((slot) => setWorkspaceFile(slot, payload));
+      } catch (error) {
+        appendLog("error", `Failed to reload ${changedPath}: ${String(error)}`);
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [generatorPath, solutionPath, appendLog]);
+
+  useEffect(() => {
+    if (!generatorPath) return;
+    invoke("watch_file", { path: generatorPath });
+    return () => {
+      if (generatorPath !== solutionPath)
+        invoke("unwatch_file", { path: generatorPath });
+    };
+  }, [generatorPath, solutionPath]);
+
+  useEffect(() => {
+    if (!solutionPath) return;
+    invoke("watch_file", { path: solutionPath });
+    return () => {
+      if (generatorPath !== solutionPath)
+        invoke("unwatch_file", { path: solutionPath });
+    };
+  }, [generatorPath, solutionPath]);
 
   return {
     generatorFile,

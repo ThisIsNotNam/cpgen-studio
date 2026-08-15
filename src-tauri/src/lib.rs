@@ -1,9 +1,12 @@
 mod expr;
 mod runner;
 mod schema;
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
+    sync::Mutex,
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Manager};
@@ -293,6 +296,39 @@ fn preview_schema(schema: Vec<schema::SchemaNode>, seed: Option<u64>) -> Result<
     schema::generate(&schema, seed)
 }
 
+struct WatcherState(Mutex<HashMap<String, RecommendedWatcher>>);
+
+#[tauri::command]
+fn watch_file(
+    app: AppHandle,
+    path: String,
+    state: tauri::State<WatcherState>,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        if let Ok(event) = res {
+            if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                for changed_path in event.paths {
+                    let _ =
+                        app_handle.emit("file-changed", changed_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+    watcher
+        .watch(Path::new(&path), RecursiveMode::NonRecursive)
+        .map_err(|e| e.to_string())?;
+    state.0.lock().unwrap().insert(path, watcher);
+    Ok(())
+}
+
+#[tauri::command]
+fn unwatch_file(state: tauri::State<WatcherState>, path: String) -> Result<(), String> {
+    state.0.lock().unwrap().remove(&path);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -304,6 +340,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::new().build())
+        .manage(WatcherState(Mutex::new(HashMap::new())))
         .invoke_handler(tauri::generate_handler![
             read_workspace_file,
             pick_workspace_file,
@@ -314,7 +351,9 @@ pub fn run() {
             preview_schema,
             save_workspace_file,
             save_file,
-            load_schema_file
+            load_schema_file,
+            watch_file,
+            unwatch_file
         ])
         .setup(|app| {
             let version = app.package_info().version.to_string();
