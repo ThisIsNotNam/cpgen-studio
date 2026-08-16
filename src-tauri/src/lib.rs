@@ -32,16 +32,20 @@ struct SchemaLoadPayload {
 }
 
 fn infer_language(path: &Path) -> String {
-    match path.extension().and_then(|extension| extension.to_str()) {
-        Some("py") => "python",
-        Some("cpp") | Some("cc") | Some("cxx") | Some("hpp") | Some("h") => "cpp",
-        Some("ts") | Some("tsx") => "typescript",
-        Some("js") | Some("jsx") => "javascript",
-        Some("json") => "json",
-        Some("md") => "markdown",
-        _ => "plaintext",
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase());
+
+    match extension.as_deref() {
+        Some("py") => "python".to_string(),
+        Some("cpp") | Some("cc") | Some("cxx") | Some("hpp") | Some("h") => "cpp".to_string(),
+        Some("ts") | Some("tsx") => "typescript".to_string(),
+        Some("js") | Some("jsx") => "javascript".to_string(),
+        Some("json") => "json".to_string(),
+        Some("md") => "markdown".to_string(),
+        _ => "plaintext".to_string(),
     }
-    .to_string()
 }
 
 fn build_workspace_file(path: PathBuf) -> Result<WorkspaceFilePayload, String> {
@@ -383,4 +387,147 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_workspace_file, infer_language, read_workspace_file, save_workspace_file};
+    use crate::schema::{Charset, SchemaNode};
+    use std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn temp_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("cpgen-studio-lib-tests-{unique}"))
+    }
+
+    #[test]
+    fn infer_language_handles_common_extensions() {
+        let cases = [
+            ("script.py", "python"),
+            ("main.cpp", "cpp"),
+            ("component.tsx", "typescript"),
+            ("index.js", "javascript"),
+            ("schema.json", "json"),
+            ("readme.md", "markdown"),
+            ("notes.txt", "plaintext"),
+            ("README", "plaintext"),
+        ];
+
+        for (file_name, expected) in cases {
+            let path = std::path::Path::new(file_name);
+            assert_eq!(infer_language(path), expected);
+        }
+    }
+
+    #[test]
+    fn build_workspace_file_reads_metadata_and_contents() {
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let file_path = dir.join("workspace.py");
+        let contents = "print('build workspace file')\n";
+        fs::write(&file_path, contents).unwrap();
+
+        let payload = build_workspace_file(file_path.clone()).unwrap();
+
+        assert_eq!(payload.path, file_path.to_string_lossy().to_string());
+        assert_eq!(payload.name, "workspace.py");
+        assert_eq!(payload.language, "python");
+        assert_eq!(payload.value, contents);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_and_read_workspace_file_round_trip() {
+        let dir = temp_dir();
+        fs::create_dir_all(&dir).unwrap();
+        let file_path = dir.join("example.py");
+        let contents = "print('hello from tests')\n";
+
+        save_workspace_file(
+            file_path.to_string_lossy().to_string(),
+            contents.to_string(),
+        )
+        .unwrap();
+
+        let loaded = read_workspace_file(file_path.to_string_lossy().to_string()).unwrap();
+
+        assert_eq!(loaded.path, file_path.to_string_lossy().to_string());
+        assert_eq!(loaded.name, "example.py");
+        assert_eq!(loaded.language, "python");
+        assert_eq!(loaded.value, contents);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn infer_language_handles_case_insensitive_and_default_extensions() {
+        let cases = [
+            ("script.PY", "python"),
+            ("main.CPP", "cpp"),
+            ("component.TS", "typescript"),
+            ("asset.MD", "markdown"),
+            ("notes.unknown", "plaintext"),
+            ("no_extension", "plaintext"),
+        ];
+
+        for (file_name, expected) in cases {
+            let path = std::path::Path::new(file_name);
+            assert_eq!(infer_language(path), expected);
+        }
+    }
+
+    #[test]
+    fn build_workspace_file_returns_error_for_missing_file() {
+        let file_path = temp_dir().join("does_not_exist.py");
+        let result = build_workspace_file(file_path);
+        assert!(matches!(result, Err(err) if err.contains("failed to read")));
+    }
+
+    #[test]
+    fn preview_schema_generates_expected_output() {
+        let schema = vec![
+            SchemaNode::Int {
+                var_name: None,
+                min: "2".to_string(),
+                max: "2".to_string(),
+            },
+            SchemaNode::Loop {
+                count: "2".to_string(),
+                children: vec![SchemaNode::String {
+                    var_name: None,
+                    length: "3".to_string(),
+                    charset: Charset::Digits,
+                    custom_charset: None,
+                }],
+            },
+        ];
+
+        let result = super::preview_schema(schema, Some(7)).unwrap();
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "2");
+        assert_eq!(lines[1].len(), 3);
+        assert!(lines[1].chars().all(|c| c.is_ascii_digit()));
+        assert_eq!(lines[2].len(), 3);
+    }
+
+    #[test]
+    fn preview_schema_propagates_invalid_schema_error() {
+        let schema = vec![SchemaNode::Int {
+            var_name: None,
+            min: "10".to_string(),
+            max: "1".to_string(),
+        }];
+
+        let result = super::preview_schema(schema, Some(1));
+        assert!(matches!(result, Err(err) if err.contains("greater than max")));
+    }
 }
