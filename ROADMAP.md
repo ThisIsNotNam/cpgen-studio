@@ -20,7 +20,7 @@ All other items below are being implemented in the lead-up to `1.0`.
 - [ ] **Optional block output**: a block is omitted from output entirely when its output expression evaluates to empty/blank
 - [ ] **Conditional block**: an `IF` block supporting basic branching logic within a schema tree
 - [ ] **Additional block types**: expand the block library over time
-- [ ] **Savable schema**: export/import the schema as JSON
+- [x] **Savable schema**: export/import the schema as JSON
 
 ## Fixes
 
@@ -29,7 +29,7 @@ All other items below are being implemented in the lead-up to `1.0`.
 
 ## Editor & UI
 
-- [ ] **Color-coded blocks**: visual differentiation by block category (input / output / constraint / generator, etc.)
+- [x] **Color-coded blocks**: visual differentiation by block category (input / output / constraint / generator, etc.)
 - [x] **Settings page**: global configuration for application behavior, compiler flags, and other configurable defaults
 
 ## Subtasks (1.0)

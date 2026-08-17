@@ -6,6 +6,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { memo, useState } from "react";
 import type { SchemaNode } from "../../types";
+import { getNodeKindMeta } from "../../utils/nodeCategory";
 import NodeFields from "./NodeFields";
 
 interface NodeCardProps {
@@ -25,6 +26,8 @@ function NodeCard({
 }: NodeCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const isSelected = selectedId === node.id;
+  const nodeMeta = getNodeKindMeta(node.kind);
+  const categoryColor = nodeMeta.color;
 
   const {
     attributes,
@@ -45,6 +48,27 @@ function NodeCard({
     zIndex: isDragging ? 999 : "auto",
   };
 
+  const cardStyle = {
+    borderColor: isSelected ? categoryColor.accent : categoryColor.border,
+    boxShadow: isSelected ? `0 0 0 1px ${categoryColor.accent}` : undefined,
+  };
+
+  const headerStyle = {
+    backgroundColor: categoryColor.soft,
+    borderBottomColor: categoryColor.border,
+  };
+
+  const kindBadgeStyle = {
+    backgroundColor: categoryColor.soft,
+    borderColor: categoryColor.border,
+    color: categoryColor.accent,
+  };
+
+  const loopBodyStyle = {
+    borderLeftColor: categoryColor.border,
+    backgroundColor: "var(--bg-primary)",
+  };
+
   const stopInteractivePropagation = (
     e: React.PointerEvent | React.MouseEvent,
   ) => {
@@ -57,23 +81,23 @@ function NodeCard({
   return (
     <div
       ref={setNodeRef}
-      style={style}
       onClick={(e) => onSelect(node.id, e)}
-      className={`bg-(--bg-tertiary) border rounded overflow-hidden shadow-sm cursor-pointer select-none ${
-        isSelected
-          ? "border-(--accent) ring-1 ring-(--accent)"
-          : "border-(--border) hover:border-(--border-light,#353940)"
-      }`}
+      className="bg-(--bg-tertiary) border rounded overflow-hidden shadow-sm cursor-pointer select-none"
+      style={{ ...style, ...cardStyle }}
     >
       {/* Entire Header Bar acts as Drag Handle */}
       <div
         {...attributes}
         {...listeners}
-        className="flex items-center gap-2 p-2 bg-(--bg-secondary) border-b border-(--border) cursor-grab active:cursor-grabbing touch-none"
+        className="flex items-center gap-2 p-2 bg-(--bg-secondary) border-b cursor-grab active:cursor-grabbing touch-none"
+        style={headerStyle}
       >
         <span className="text-(--text-muted) text-xs">⋮⋮</span>
 
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-(--bg-input) text-(--text-secondary) border border-(--border) pointer-events-none">
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border pointer-events-none"
+          style={kindBadgeStyle}
+        >
           {node.kind}
         </span>
 
@@ -123,7 +147,10 @@ function NodeCard({
           onPointerDown={stopInteractivePropagation}
         >
           {node.kind === "loop" ? (
-            <div className="pl-2 border-l-2 border-(--accent) bg-(--bg-primary) p-2 rounded space-y-2 min-h-12">
+            <div
+              className="pl-2 border-l-2 bg-(--bg-primary) p-2 rounded space-y-2 min-h-12"
+              style={loopBodyStyle}
+            >
               <div className="text-[10px] text-(--text-muted) uppercase font-semibold">
                 Loop Container
               </div>
