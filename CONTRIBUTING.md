@@ -66,8 +66,8 @@ CPGen Studio is licensed under [PolyForm Noncommercial 1.0.0](LICENSE).
   request, patch, issue attachment, or any other form of submission.
 - **Maintainer** means the person or entity that owns and has
   administrative control over the official CPGen Studio repository,
-  currently located at [CPGen Studio](https://github.com/ThisIsNotNam/cpgen-studio). As of this writing, that is
-  [ThisIsNotNam](https://github.com/ThisIsNotNam).
+  currently located at [CPGen Studio](https://github.com/odetteSpessiva/cpgen-studio). As of this writing, that is
+  [odetteSpessiva](https://github.com/odetteSpessiva).
 
 By submitting a pull request to this repository, you agree that:
 
