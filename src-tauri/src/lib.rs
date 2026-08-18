@@ -153,6 +153,16 @@ fn show_window(window: tauri::Window) {
     win.show().expect("failed to show main window");
 }
 
+fn send_status(app: &AppHandle, step: &str, message: &str) {
+    let _ = app.emit(
+        "test-status",
+        StatusPayload {
+            step: step.to_string(),
+            message: message.to_string(),
+        },
+    );
+}
+
 #[derive(Serialize, Clone)]
 struct StatusPayload {
     step: String,
@@ -170,17 +180,10 @@ async fn generate_tests(
     start_id: i32,
     index_as_arg: bool,
 ) -> Result<(), String> {
-    let send_status = |step: &str, message: &str| {
-        let _ = app.emit(
-            "test-status",
-            StatusPayload {
-                step: step.to_string(),
-                message: message.to_string(),
-            },
-        );
-    };
+    const BATCH_SIZE: usize = 4;
 
     send_status(
+        &app,
         "prep_executable",
         "Preparing run command for provided files",
     );
@@ -198,32 +201,51 @@ async fn generate_tests(
     let gen_command = prep_executable(&gen_path, &compiler_path, &compiler_args).await?;
     let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
+    let mut in_flight = tokio::task::JoinSet::new();
     for i in 0..test_count {
-        let idx_str = (i + start_id).to_string();
-        send_status(
-            "run_executable",
-            format!("Generating test #{}", i + start_id).as_str(),
-        );
-        let test = if index_as_arg {
-            let mut gen_command_with_idx = gen_command.clone();
-            gen_command_with_idx.1.push(idx_str);
-            runner::run(&gen_command_with_idx, Duration::from_secs(10), None).await?
-        } else {
-            runner::run(&gen_command, Duration::from_secs(10), Some(&idx_str)).await?
-        };
-        let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
-        let test_path = output_path.join(format!("{test_name}{}", i + start_id));
-        fs::create_dir_all(&test_path)
-            .await
-            .map_err(|e| format!("Unable to create test output directory: {e}"))?;
-        fs::write(test_path.join(format!("{test_name}.inp")), test)
-            .await
-            .map_err(|e| format!("Unable to write test: {e}"))?;
-        fs::write(test_path.join(format!("{test_name}.out")), result)
-            .await
-            .map_err(|e| format!("Unable to write result: {e}"))?;
+        let gen_command = gen_command.clone();
+        let sol_command = sol_command.clone();
+        let output_path = output_path.clone();
+        let test_name = test_name.clone();
+        let app = app.clone();
+        in_flight.spawn(async move {
+            let idx_str = (i + start_id).to_string();
+            send_status(
+                &app,
+                "run_executable",
+                format!("Generating test #{}", i + start_id).as_str(),
+            );
+            let test = if index_as_arg {
+                let mut gen_command_with_idx = gen_command.clone();
+                gen_command_with_idx.1.push(idx_str);
+                runner::run(&gen_command_with_idx, Duration::from_secs(10), None).await?
+            } else {
+                runner::run(&gen_command, Duration::from_secs(10), Some(&idx_str)).await?
+            };
+            let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
+            let test_path = output_path.join(format!("{test_name}{}", i + start_id));
+            fs::create_dir_all(&test_path)
+                .await
+                .map_err(|e| format!("Unable to create test output directory: {e}"))?;
+            fs::write(test_path.join(format!("{test_name}.inp")), test)
+                .await
+                .map_err(|e| format!("Unable to write test: {e}"))?;
+            fs::write(test_path.join(format!("{test_name}.out")), result)
+                .await
+                .map_err(|e| format!("Unable to write result: {e}"))?;
+            Ok::<(), String>(())
+        });
+        if in_flight.len() >= BATCH_SIZE {
+            if let Some(res) = in_flight.join_next().await {
+                res.map_err(|e| format!("Test generation task panicked:\n-->{e}"))??;
+            }
+        }
+    }
+    while let Some(res) = in_flight.join_next().await {
+        res.map_err(|e| format!("Test generation task panicked: {e}"))??;
     }
     send_status(
+        &app,
         "finished",
         format!("Finished generating {test_count} tests.").as_str(),
     );
@@ -242,17 +264,12 @@ async fn generate_tests_from_schema(
     start_id: i32,
     seed: Option<u64>,
 ) -> Result<(), String> {
-    let send_status = |step: &str, message: &str| {
-        let _ = app.emit(
-            "test-status",
-            StatusPayload {
-                step: step.to_string(),
-                message: message.to_string(),
-            },
-        );
-    };
-
-    send_status("prep_executable", "Preparing run command for solution file");
+    const BATCH_SIZE: usize = 4;
+    send_status(
+        &app,
+        "prep_executable",
+        "Preparing run command for solution file",
+    );
 
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let compiler_path = store
@@ -266,29 +283,47 @@ async fn generate_tests_from_schema(
 
     let sol_command = prep_executable(&sol_path, &compiler_path, &compiler_args).await?;
 
+    let mut in_flight = tokio::task::JoinSet::new();
     for i in 0..test_count {
-        send_status(
-            "generate_input",
-            format!("Generating test #{} from schema", i + start_id).as_str(),
-        );
-        let test_seed = seed.map(|s| s.wrapping_add(i as u64));
-        let test = schema::generate(&schema, test_seed)
-            .map_err(|e| format!("Schema interpretation failed: {e}"))?;
-        let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
+        let schema = schema.clone();
+        let sol_command = sol_command.clone();
+        let output_path = output_path.clone();
+        let test_name = test_name.clone();
+        let app = app.clone();
+        in_flight.spawn(async move {
+            send_status(
+                &app,
+                "generate_input",
+                format!("Generating test #{} from schema", i + start_id).as_str(),
+            );
+            let test_seed = seed.map(|s| s.wrapping_add(i as u64));
+            let test = schema::generate(&schema, test_seed)
+                .map_err(|e| format!("Schema interpretation failed: {e}"))?;
+            let result = runner::run(&sol_command, Duration::from_secs(10), Some(&test)).await?;
 
-        let test_path = output_path.join(format!("{test_name}{}", i + start_id));
-        fs::create_dir_all(&test_path)
-            .await
-            .map_err(|e| format!("Unable to create test output directory: {e}"))?;
-        fs::write(test_path.join(format!("{test_name}.inp")), &test)
-            .await
-            .map_err(|e| format!("Unable to write test: {e}"))?;
-        fs::write(test_path.join(format!("{test_name}.out")), result)
-            .await
-            .map_err(|e| format!("Unable to write result: {e}"))?;
+            let test_path = output_path.join(format!("{test_name}{}", i + start_id));
+            fs::create_dir_all(&test_path)
+                .await
+                .map_err(|e| format!("Unable to create test output directory: {e}"))?;
+            fs::write(test_path.join(format!("{test_name}.inp")), &test)
+                .await
+                .map_err(|e| format!("Unable to write test: {e}"))?;
+            fs::write(test_path.join(format!("{test_name}.out")), result)
+                .await
+                .map_err(|e| format!("Unable to write result: {e}"))?;
+            Ok::<(), String>(())
+        });
+        if in_flight.len() >= BATCH_SIZE {
+            if let Some(res) = in_flight.join_next().await {
+                res.map_err(|e| format!("Test generation task panicked: {e}"))??;
+            }
+        }
     }
-
+    while let Some(res) = in_flight.join_next().await {
+        res.map_err(|e| format!("Test generation task panicked: {e}"))??;
+    }
     send_status(
+        &app,
         "finished",
         format!("Finished generating {test_count} tests.").as_str(),
     );
