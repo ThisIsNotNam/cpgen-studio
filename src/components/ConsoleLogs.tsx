@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useConsoleLogsContext } from "../context/ConsoleLogsContext";
 import ConsoleLogLine from "./ConsoleLogLine";
 
@@ -9,17 +9,20 @@ export default function ConsoleLogs() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasMountedRef = useRef(false);
+  const isAtBottomRef = useRef(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
       el.scrollTop = lastScrollTop;
+      isAtBottomRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 50;
       return;
     }
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-    if (isNearBottom) {
+
+    if (isAtBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
   }, [logs]);
@@ -29,6 +32,8 @@ export default function ConsoleLogs() {
     if (!el) return;
     const onScroll = () => {
       lastScrollTop = el.scrollTop;
+      isAtBottomRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
